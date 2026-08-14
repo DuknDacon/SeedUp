@@ -1,0 +1,7 @@
+fastapi>=0.116,<1
+uvicorn[standard]>=0.35,<1
+pydantic>=2.11,<3
+
+# Local development: install the adjacent repository first with:
+# pip install -e ../Roadmap-Agent
+# Deployment: install the package from its Git repository before this file.

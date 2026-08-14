@@ -170,3 +170,64 @@ export type ApiError = {
   message: string;
   detail?: unknown;
 };
+
+// ============================================================
+// 기능 2: 자산관리 로드맵
+// ============================================================
+
+export type RiskLevel = "stable" | "balanced" | "growth";
+
+export interface RoadmapRequest {
+  birthDate: string;
+  previousAnnualIncome: number;
+  currentAnnualIncome: number;
+  region: string;
+  regionProvinceCode: string;
+  regionDistrictCode: string;
+  householdSize: number;
+  maritalStatus: "single" | "married";
+  employed: boolean;
+  employmentType: string | null;
+  isSmeEmployee: boolean | null;
+  monthlyTakeHome: number | null;
+  monthlyBudget: number;
+  targetDate: string;
+  targetAmount: number | null;
+  hasEmergencyFund: boolean;
+  riskLevel: RiskLevel | null;
+  investmentCap: number | null;
+}
+
+export interface AllocationItem {
+  label: string;
+  amount: number;
+  color: string;
+}
+
+export interface Scenario {
+  id: string;
+  badge: string;
+  title: string;
+  productType: string;
+  monthlyAmount: number;
+  expectedAmount: number;
+  principal: number;
+  goalRate?: number;
+  shortfall?: number;
+  allocations: AllocationItem[];
+  highlights: string[];
+  warnings: string[];
+  evidence: { title: string; organization: string; url: string }[];
+}
+
+export interface RoadmapResponse {
+  recommended: Scenario;
+  alternative: Scenario;
+  summary: string;
+  explanation: string | null;
+  recommendedReason: string | null;
+  alternativeReason: string | null;
+  chatReply: string | null;
+  notice: string;
+  generatedAt: string;
+}

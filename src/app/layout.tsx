@@ -30,13 +30,16 @@ export default function RootLayout({
                   <Link href="/policy" className="hover:text-brand-700">
                     정책 매칭
                   </Link>
+                  <Link href="/roadmap" className="hover:text-brand-700">
+                    자산 로드맵
+                  </Link>
                   <Link href="/chat" className="hover:text-brand-700">
                     AI 상담
                   </Link>
                 </nav>
               </div>
             </header>
-            <main className="max-w-5xl mx-auto px-4 py-6">{children}</main>
+            <main>{children}</main>
           </div>
         </QueryProvider>
       </body>

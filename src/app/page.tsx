@@ -23,9 +23,8 @@ export default function HomePage() {
           emoji="🗺️"
           title="② AI 자산관리 로드맵"
           desc="매달 얼마씩, 어떤 상품에 넣을지 — 시드머니까지의 여정을 도와드립니다."
-          cta="곧 열립니다"
-          href="#"
-          disabled
+          cta="로드맵 만들기"
+          href="/roadmap"
         />
       </div>
 
