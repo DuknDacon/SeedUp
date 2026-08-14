@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f8fafc;
+  --fg: #0f172a;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Pretendard",
+    "Noto Sans KR",
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+}
