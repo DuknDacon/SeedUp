@@ -7,14 +7,27 @@ from pathlib import Path
 
 import roadmap_agent
 from roadmap_agent.config import load_env_file
-from roadmap_agent.gemini import GeminiEmbeddingClient, GeminiRoadmapExplainer
-from roadmap_agent.ports import PolicyRepository, RagRetriever, RoadmapExplainer, SavingsProductRepository
+from roadmap_agent.gemini import (
+    GeminiConversationPlanner,
+    GeminiEmbeddingClient,
+    GeminiRoadmapExplainer,
+)
+from roadmap_agent.ports import (
+    PolicyRepository,
+    RagRetriever,
+    RoadmapExplainer,
+    SavingsProductRepository,
+)
 from roadmap_agent.repositories import (
     PostgresPolicyRepository,
     PostgresSavingsProductRepository,
     postgres_connection_factory_from_env,
 )
-from roadmap_agent.retrieval import FallbackRagRetriever, LocalRagRetriever, PostgresVectorRagRetriever
+from roadmap_agent.retrieval import (
+    FallbackRagRetriever,
+    LocalRagRetriever,
+    PostgresVectorRagRetriever,
+)
 
 
 def _enabled(name: str) -> bool:
@@ -34,6 +47,7 @@ class Runtime:
     savings_repository: SavingsProductRepository | None = None
     retriever: RagRetriever | None = None
     explainer: RoadmapExplainer | None = None
+    planner: object | None = None
 
 
 @lru_cache(maxsize=1)
@@ -44,6 +58,7 @@ def get_runtime() -> Runtime:
     savings = None
     retriever = None
     explainer = None
+    planner = None
 
     if all(os.getenv(name) for name in ("POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD")):
         factory = postgres_connection_factory_from_env()
@@ -58,11 +73,23 @@ def get_runtime() -> Runtime:
         )
 
     if _enabled("ENABLE_GEMINI"):
-        explainer = GeminiRoadmapExplainer()
+        explainer = GeminiRoadmapExplainer(
+            web_search_enabled=os.getenv(
+                "ENABLE_GEMINI_WEB_SEARCH", "true"
+            ).strip().lower() in {"1", "true", "yes", "on"},
+            web_search_monthly_limit=int(
+                os.getenv("GEMINI_WEB_SEARCH_MONTHLY_LIMIT", "1000")
+            ),
+        )
+
+    # 대화 원문은 별도 동의 플래그가 있을 때만 외부 계획기로 전달한다.
+    if _enabled("ENABLE_GEMINI_PLANNER"):
+        planner = GeminiConversationPlanner()
 
     return Runtime(
         policy_repository=policies,
         savings_repository=savings,
         retriever=retriever,
         explainer=explainer,
+        planner=planner,
     )
