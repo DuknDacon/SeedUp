@@ -218,6 +218,7 @@ export interface Scenario {
   highlights: string[];
   warnings: string[];
   evidence: { title: string; organization: string; url: string }[];
+  monthlyLimit: number | null;
 }
 
 export interface RoadmapResponse {
@@ -230,4 +231,7 @@ export interface RoadmapResponse {
   chatReply: string | null;
   notice: string;
   generatedAt: string;
+  conversationStatus: "needs_input" | "completed" | "failed" | null;
+  conversationIntent: "condition_change" | "result_explanation" | "product_alternatives" | "product_ranking" | "policy_eligibility" | "financial_qa" | "input_completion" | "unclear" | null;
+  requestPatch: Pick<RoadmapRequest, "monthlyBudget" | "targetDate" | "targetAmount" | "hasEmergencyFund" | "investmentCap"> | null;
 }

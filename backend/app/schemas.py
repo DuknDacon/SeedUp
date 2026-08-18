@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -30,6 +31,7 @@ class RoadmapCreateRequest(ApiModel):
     risk_level: Literal["stable", "balanced", "growth"] = Field(alias="riskLevel")
     investment_cap: int = Field(alias="investmentCap", ge=0, le=100)
     question: str = Field(default="", max_length=1000)
+    thread_id: UUID | None = Field(default=None, alias="threadId")
 
     @field_validator("target_date")
     @classmethod
@@ -65,6 +67,7 @@ class ScenarioResponse(ApiModel):
     highlights: list[str]
     warnings: list[str]
     evidence: list[EvidenceItem]
+    monthly_limit: int | None = Field(default=None, alias="monthlyLimit")
 
 
 class RoadmapResponse(ApiModel):
@@ -77,6 +80,17 @@ class RoadmapResponse(ApiModel):
     chat_reply: str | None = Field(default=None, alias="chatReply")
     notice: str
     generated_at: datetime = Field(alias="generatedAt")
+    conversation_status: str | None = Field(default=None, alias="conversationStatus")
+    conversation_intent: str | None = Field(default=None, alias="conversationIntent")
+    request_patch: "RoadmapRequestPatch | None" = Field(default=None, alias="requestPatch")
+
+
+class RoadmapRequestPatch(ApiModel):
+    monthly_budget: int = Field(alias="monthlyBudget")
+    target_date: date = Field(alias="targetDate")
+    target_amount: int | None = Field(alias="targetAmount")
+    has_emergency_fund: bool = Field(alias="hasEmergencyFund")
+    investment_cap: int | None = Field(alias="investmentCap")
 
 
 class ApiError(ApiModel):

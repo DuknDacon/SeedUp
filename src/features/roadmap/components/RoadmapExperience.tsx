@@ -27,6 +27,7 @@ export function RoadmapExperience() {
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<{ role: "agent" | "user"; text: string }[]>([]);
   const [message, setMessage] = useState("");
+  const [threadId, setThreadId] = useState(() => crypto.randomUUID());
 
   async function submit(event: FormEvent) {
     event.preventDefault(); setError(null);
@@ -43,6 +44,7 @@ export function RoadmapExperience() {
       const next = await createRoadmap(form);
       setResult(next);
       setMessages([]);
+      setThreadId(crypto.randomUUID());
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "로드맵을 만들지 못했습니다.");
     } finally {
@@ -62,7 +64,10 @@ export function RoadmapExperience() {
     if (updatedForm !== form) setForm(updatedForm);
     setLoading(true);
     try {
-      const next = await createRoadmap(updatedForm, userText);
+      const next = await createRoadmap(updatedForm, userText, threadId);
+      if (next.requestPatch) {
+        setForm((current) => ({ ...current, ...next.requestPatch }));
+      }
       setResult(next);
       setMessages((current) => [...current, {
         role: "agent",

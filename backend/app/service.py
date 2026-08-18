@@ -1,19 +1,47 @@
 from __future__ import annotations
 
+from dataclasses import replace
+import calendar
 from datetime import date, datetime, timezone
 from hashlib import sha1
 
 from roadmap_agent.domain import RiskProfile, RoadmapRequest, Scenario
-from roadmap_agent.orchestrator import run_roadmap
+from roadmap_agent.orchestrator import build_conversation_graph, run_roadmap
 
 from .schemas import (
     AllocationItem,
     EvidenceItem,
     RoadmapCreateRequest,
     RoadmapResponse,
+    RoadmapRequestPatch,
     ScenarioResponse,
 )
 from .runtime import get_runtime
+
+
+_CONVERSATION_GRAPHS = {}
+
+
+def _conversation_graph(runtime):
+    key = tuple(
+        id(value)
+        for value in (
+            runtime.policy_repository,
+            runtime.savings_repository,
+            runtime.retriever,
+            runtime.explainer,
+            runtime.planner,
+        )
+    )
+    if key not in _CONVERSATION_GRAPHS:
+        _CONVERSATION_GRAPHS[key] = build_conversation_graph(
+            policy_repository=runtime.policy_repository,
+            savings_repository=runtime.savings_repository,
+            retriever=runtime.retriever,
+            explainer=runtime.explainer,
+            planner=runtime.planner,
+        )
+    return _CONVERSATION_GRAPHS[key]
 
 
 RISK_PROFILE = {
@@ -43,6 +71,13 @@ def _age(birth_date: date, as_of: date) -> int:
 
 def _months(target: date, as_of: date) -> int:
     return (target.year - as_of.year) * 12 + target.month - as_of.month
+
+
+def _target_date(horizon_months: int, as_of: date) -> date:
+    absolute_month = as_of.year * 12 + as_of.month - 1 + horizon_months
+    year, zero_based_month = divmod(absolute_month, 12)
+    month = zero_based_month + 1
+    return date(year, month, calendar.monthrange(year, month)[1])
 
 
 def _scenario(value: Scenario, badge: str) -> ScenarioResponse:
@@ -79,6 +114,7 @@ def _scenario(value: Scenario, badge: str) -> ScenarioResponse:
         highlights=value.rationale,
         warnings=value.warnings,
         evidence=evidence,
+        monthlyLimit=value.monthly_limit,
     )
 
 
@@ -110,8 +146,33 @@ def create_roadmap(payload: RoadmapCreateRequest) -> RoadmapResponse:
         policy_repository=runtime.policy_repository,
         savings_repository=runtime.savings_repository,
         retriever=runtime.retriever,
-        explainer=runtime.explainer,
+        explainer=None if payload.question.strip() else runtime.explainer,
     )
+    conversation_status = None
+    conversation_intent = None
+    request_patch = None
+    if payload.question.strip():
+        if payload.thread_id is None:
+            raise ValueError("대화 요청에는 threadId가 필요합니다.")
+        conversation = _conversation_graph(runtime).invoke(
+            str(payload.thread_id), request, result, payload.question
+        )
+        request = conversation.request
+        result = conversation.result
+        result = replace(result, chat_reply=conversation.reply)
+        conversation_status = conversation.status.value
+        conversation_intent = conversation.intent.value
+        request_patch = RoadmapRequestPatch(
+            monthlyBudget=request.monthly_budget,
+            targetDate=_target_date(request.horizon_months, today),
+            targetAmount=request.target_amount,
+            hasEmergencyFund=request.has_emergency_fund,
+            investmentCap=(
+                round(request.max_investment_ratio * 100)
+                if request.max_investment_ratio is not None
+                else None
+            ),
+        )
     income_change = abs(payload.current_annual_income - payload.previous_annual_income)
     income_change_rate = income_change / max(payload.previous_annual_income, 1)
     income_note = (
@@ -130,4 +191,7 @@ def create_roadmap(payload: RoadmapCreateRequest) -> RoadmapResponse:
         chatReply=result.chat_reply,
         notice=income_note,
         generatedAt=datetime.now(timezone.utc),
+        conversationStatus=conversation_status,
+        conversationIntent=conversation_intent,
+        requestPatch=request_patch,
     )
