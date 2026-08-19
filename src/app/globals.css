@@ -48,6 +48,13 @@ select{width:100%;height:46px;border:1px solid #cbd5e1;background:white;border-r
 .stepper{height:46px;border:1px solid #cbd5e1;border-radius:5px;display:flex;align-items:center;justify-content:space-between}
 .stepper button{height:100%;width:42px;border:0;background:transparent;color:var(--brand);font-size:18px}
 .stepper strong{font-size:14px}
+.segmented-date{display:flex;align-items:center;gap:6px}
+.segmented-date input{text-align:center;padding:0 4px}
+.segmented-date input.year{flex:1.4}
+.segmented-date input.month,.segmented-date input.day{flex:1}
+.segmented-date span{color:var(--muted)}
+.duration-input{display:flex;gap:10px}
+.duration-input .suffix-input{flex:1}
 .confirm{display:flex;gap:10px;align-items:flex-start;font-size:12px;line-height:1.5;color:#475569;margin:24px 0}
 .detail-fields{margin-top:24px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .detail-fields summary{display:flex;align-items:center;justify-content:space-between;padding:17px 0;cursor:pointer;list-style:none}

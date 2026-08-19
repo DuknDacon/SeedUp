@@ -7,6 +7,7 @@ from pathlib import Path
 
 import roadmap_agent
 from roadmap_agent.config import load_env_file
+from roadmap_agent.conversation_store import DEFAULT_TTL_SECONDS, SqliteConversationStore
 from roadmap_agent.gemini import (
     GeminiConversationPlanner,
     GeminiEmbeddingClient,
@@ -48,6 +49,7 @@ class Runtime:
     retriever: RagRetriever | None = None
     explainer: RoadmapExplainer | None = None
     planner: object | None = None
+    conversation_store: SqliteConversationStore | None = None
 
 
 @lru_cache(maxsize=1)
@@ -86,10 +88,16 @@ def get_runtime() -> Runtime:
     if _enabled("ENABLE_GEMINI_PLANNER"):
         planner = GeminiConversationPlanner()
 
+    default_store_path = Path(__file__).resolve().parent / ".data" / "conversations.sqlite"
+    store_path = os.getenv("CONVERSATION_STORE_PATH", str(default_store_path))
+    ttl_seconds = int(os.getenv("CONVERSATION_TTL_SECONDS", str(DEFAULT_TTL_SECONDS)))
+    conversation_store = SqliteConversationStore(store_path, ttl_seconds=ttl_seconds)
+
     return Runtime(
         policy_repository=policies,
         savings_repository=savings,
         retriever=retriever,
         explainer=explainer,
         planner=planner,
+        conversation_store=conversation_store,
     )

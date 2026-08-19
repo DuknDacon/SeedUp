@@ -56,6 +56,12 @@ def setup_module():
     service.get_runtime = lambda: TEST_RUNTIME
 
 
+def test_risk_level_and_investment_cap_are_optional():
+    payload = {**PAYLOAD, "riskLevel": None, "investmentCap": None}
+    response = roadmap(RoadmapCreateRequest(**payload, threadId=uuid4()))
+    assert response.recommended is not None
+
+
 def test_recommendation_reason_question_uses_agentic_reply():
     response = roadmap(RoadmapCreateRequest(
         **PAYLOAD, question="왜 이 상품을 추천했어?", threadId=uuid4()
