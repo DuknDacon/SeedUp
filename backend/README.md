@@ -4,11 +4,13 @@ FastAPI adapter for the Feature 2 `Roadmap-Agent` package.
 
 ## Local setup
 
-From the `SeedUp` repository root:
+This backend shares one virtual environment with `Roadmap-Agent` instead of keeping
+its own — `Roadmap-Agent` is installed into it as an editable package. The shared
+venv lives one level above `SeedUp/` and `Roadmap-Agent/` (their common parent
+folder). From the `SeedUp` repository root:
 
 ```bash
-python -m venv backend/.venv
-source backend/.venv/bin/activate
+source ../.venv/bin/activate   # if it doesn't exist yet: python -m venv ../.venv
 pip install -e ../Roadmap-Agent
 pip install -r backend/requirements.txt
 uvicorn backend.app.main:app --reload --port 8001
