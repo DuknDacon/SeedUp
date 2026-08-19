@@ -27,9 +27,6 @@ export default function RootLayout({
                   <Link href="/onboarding" className="hover:text-brand-700">
                     프로필
                   </Link>
-                  <Link href="/policy" className="hover:text-brand-700">
-                    정책 매칭
-                  </Link>
                   <Link href="/chat" className="hover:text-brand-700">
                     AI 상담
                   </Link>

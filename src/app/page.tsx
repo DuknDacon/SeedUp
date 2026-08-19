@@ -15,23 +15,23 @@ export default function HomePage() {
         <FeatureCard
           emoji="🎯"
           title="① 정책 금융 매칭"
-          desc="온통청년·서민금융·전세대출·복지서비스 4대 소스에서 나에게 맞는 정책을 AI가 골라줍니다."
-          cta="시작하기"
+          desc="온통청년·서민금융·전세대출·복지서비스 4대 소스에서 나에게 맞는 정책을 AI와 대화하며 찾습니다."
+          cta="프로필 입력 후 대화 시작"
           href="/onboarding"
         />
         <FeatureCard
           emoji="🗺️"
           title="② AI 자산관리 로드맵"
-          desc="매달 얼마씩, 어떤 상품에 넣을지 — 시드머니까지의 여정을 도와드립니다."
-          cta="곧 열립니다"
-          href="#"
-          disabled
+          desc="매달 얼마씩, 어떤 상품에 넣을지 — 같은 대화창에서 이어서 물어보세요. (담당자 개발 중)"
+          cta="대화창 열기"
+          href="/chat"
         />
       </div>
 
       <div className="mt-8 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-900">
         <b>🚧 개발 중 안내:</b> 현재는 mock 응답으로 동작합니다. BenefitUp-Agent
-        의 실제 API가 붙으면 자동으로 실시간 매칭으로 전환됩니다.
+        의 실제 API가 붙으면 자동으로 실시간 매칭으로 전환됩니다. 두 기능 모두
+        하나의 대화창(/chat)에서 이어서 질문할 수 있도록 통합되어 있습니다.
       </div>
     </div>
   );
