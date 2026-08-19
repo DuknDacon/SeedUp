@@ -247,3 +247,11 @@ __marimo__/
 
 # Local agent instructions
 AGENTS.md
+
+# ─────────────────────────────────────────────
+# 대화 세션 저장소 (SQLite, 로컬 전용)
+# ─────────────────────────────────────────────
+backend/app/.data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm

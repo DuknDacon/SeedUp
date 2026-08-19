@@ -28,8 +28,12 @@ class RoadmapCreateRequest(ApiModel):
     target_date: date = Field(alias="targetDate")
     target_amount: int | None = Field(default=None, alias="targetAmount", gt=0)
     has_emergency_fund: bool = Field(alias="hasEmergencyFund")
-    risk_level: Literal["stable", "balanced", "growth"] = Field(alias="riskLevel")
-    investment_cap: int = Field(alias="investmentCap", ge=0, le=100)
+    risk_level: Literal["stable", "balanced", "growth"] | None = Field(
+        default=None, alias="riskLevel"
+    )
+    investment_cap: int | None = Field(
+        default=None, alias="investmentCap", ge=0, le=100
+    )
     question: str = Field(default="", max_length=1000)
     thread_id: UUID | None = Field(default=None, alias="threadId")
 
