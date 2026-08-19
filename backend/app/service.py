@@ -31,15 +31,19 @@ def _conversation_graph(runtime):
             runtime.retriever,
             runtime.explainer,
             runtime.planner,
+            runtime.conversation_store,
         )
     )
     if key not in _CONVERSATION_GRAPHS:
+        store = runtime.conversation_store
         _CONVERSATION_GRAPHS[key] = build_conversation_graph(
             policy_repository=runtime.policy_repository,
             savings_repository=runtime.savings_repository,
             retriever=runtime.retriever,
             explainer=runtime.explainer,
             planner=runtime.planner,
+            checkpointer=store.checkpointer if store else None,
+            session_store=store,
         )
     return _CONVERSATION_GRAPHS[key]
 
@@ -124,14 +128,16 @@ def create_roadmap(payload: RoadmapCreateRequest) -> RoadmapResponse:
         monthly_budget=payload.monthly_budget,
         horizon_months=_months(payload.target_date, today),
         target_amount=payload.target_amount,
-        risk_profile=RISK_PROFILE[payload.risk_level],
+        risk_profile=RISK_PROFILE[payload.risk_level or "balanced"],
         age=_age(payload.birth_date, today),
         annual_income=payload.previous_annual_income,
         previous_annual_income=payload.previous_annual_income,
         current_annual_income=payload.current_annual_income,
         monthly_take_home=payload.monthly_take_home,
         has_emergency_fund=payload.has_emergency_fund,
-        max_investment_ratio=payload.investment_cap / 100,
+        max_investment_ratio=(
+            payload.investment_cap / 100 if payload.investment_cap is not None else None
+        ),
         region_code=f"{payload.region_province_code}:{payload.region_district_code}",
         is_employed=payload.employed,
         employment_type=payload.employment_type,
