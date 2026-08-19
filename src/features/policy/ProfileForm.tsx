@@ -95,12 +95,12 @@ export function ProfileForm() {
       freeTextQuery: freeText || null,
     };
     saveProfile(profile);
-    router.push("/policy");
+    router.push("/chat");
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
-      <Section title="기본 정보">
+    <form onSubmit={onSubmit} className="space-y-3">
+      <Section title="기본 정보" cols={4}>
         <Field label="나이">
           <input
             type="number"
@@ -146,7 +146,7 @@ export function ProfileForm() {
         </Field>
       </Section>
 
-      <Section title="상황">
+      <Section title="상황" cols={3}>
         <Field label="고용 형태">
           <select
             value={employment}
@@ -210,26 +210,30 @@ export function ProfileForm() {
         </div>
       </Section>
 
-      <Section title="자유 질문 (선택)">
+      <div className="mt-6 rounded-xl border-2 border-brand-500 bg-brand-50 p-5 shadow-sm">
+        <h3 className="font-semibold mb-3 text-brand-900 text-lg">
+          자유 질문 (선택)
+        </h3>
         <textarea
           value={freeText}
           onChange={(e) => setFreeText(e.target.value)}
-          className="input min-h-[80px]"
+          className="input input-lg min-h-[120px]"
           placeholder="예: 서울에서 전세 이사 준비 중인데 도움되는 정책이 있을까요?"
         />
-      </Section>
+      </div>
 
       <button
         type="submit"
         className="w-full py-3 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition"
       >
-        내게 맞는 정책 찾기 →
+        저장하고 대화 시작하기 →
       </button>
 
       <style jsx>{`
         .input {
           width: 100%;
-          padding: 0.5rem 0.75rem;
+          padding: 0.35rem 0.6rem;
+          font-size: 0.875rem;
           border: 1px solid #cbd5e1;
           border-radius: 0.5rem;
           background: white;
@@ -239,22 +243,36 @@ export function ProfileForm() {
           outline-offset: 1px;
           border-color: transparent;
         }
+        .input-lg {
+          padding: 0.65rem 0.9rem;
+          font-size: 1rem;
+        }
       `}</style>
     </form>
   );
 }
 
+const GRID_COLS: Record<number, string> = {
+  2: "grid-cols-2",
+  3: "grid-cols-2 sm:grid-cols-3",
+  4: "grid-cols-2 sm:grid-cols-4",
+};
+
 function Section({
   title,
+  cols = 2,
   children,
 }: {
   title: string;
+  cols?: number;
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border bg-white p-5">
-      <h3 className="font-semibold mb-3 text-slate-800">{title}</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{children}</div>
+    <div className="rounded-xl border bg-white p-3">
+      <h3 className="font-semibold mb-2 text-sm text-slate-800">{title}</h3>
+      <div className={`grid ${GRID_COLS[cols] ?? GRID_COLS[2]} gap-x-3 gap-y-2`}>
+        {children}
+      </div>
     </div>
   );
 }
@@ -270,9 +288,9 @@ function Field({
 }) {
   return (
     <label className="block">
-      <div className="text-sm font-medium text-slate-700 mb-1">{label}</div>
+      <div className="text-xs font-medium text-slate-700 mb-0.5">{label}</div>
       {children}
-      {hint && <div className="text-xs text-slate-500 mt-1">{hint}</div>}
+      {hint && <div className="text-xs text-slate-500 mt-0.5">{hint}</div>}
     </label>
   );
 }

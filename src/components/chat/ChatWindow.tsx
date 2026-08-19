@@ -1,6 +1,11 @@
 /**
- * 챗 UI. thread_id 로 대화 상태를 이어감.
+ * 통합 챗 UI. thread_id 로 대화 상태를 이어감.
  * 첫 번째 메시지에만 profile 을 함께 보내서 에이전트가 컨텍스트로 활용하게 함.
+ *
+ * 기능①(정책 금융)과 기능②(자산관리 로드맵)를 별도 화면으로 나누지 않고,
+ * 이 화면 하나에서 자연스럽게 이어 대화하도록 통합했다. 메시지는 텍스트 하나가
+ * 아니라 ChatBlock[] 이라 구조화된 조회 결과/제안 질문이 대화 중간에 그대로 끼어든다
+ * (렌더링은 ChatBlockRenderer 가 담당).
  */
 "use client";
 
@@ -11,13 +16,14 @@ import {
   getOrCreateThreadId,
   loadProfile,
   resetThreadId,
+  saveProfile,
 } from "@/lib/profileStorage";
-import type { ChatSource, UserProfile } from "@/types/api";
+import type { ChatBlock, UserProfile } from "@/types/api";
+import { ChatBlockRenderer } from "./ChatBlockRenderer";
 
 type Msg = {
   role: "user" | "assistant";
-  content: string;
-  sources?: ChatSource[];
+  blocks: ChatBlock[];
 };
 
 export function ChatWindow() {
@@ -27,11 +33,26 @@ export function ChatWindow() {
   const [input, setInput] = useState("");
   const [firstTurnSent, setFirstTurnSent] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const autoSentRef = useRef(false);
 
   useEffect(() => {
     setThreadId(getOrCreateThreadId());
     setProfile(loadProfile());
   }, []);
+
+  // 온보딩의 "자유 질문"은 첫 메시지로 자동 전송되는 게 의도. 한 번 보내면
+  // 다음 방문 때 중복 전송되지 않도록 프로필에서 소비(제거)한다.
+  useEffect(() => {
+    if (autoSentRef.current) return;
+    if (!threadId || !profile?.freeTextQuery) return;
+    autoSentRef.current = true;
+    const question = profile.freeTextQuery;
+    const updated = { ...profile, freeTextQuery: null };
+    saveProfile(updated);
+    setProfile(updated);
+    sendMessage(question);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threadId, profile]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -43,37 +64,47 @@ export function ChatWindow() {
   const chat = useMutation({
     mutationFn: sendChat,
     onSuccess: (res) => {
-      setMessages((cur) => [
-        ...cur,
-        { role: "assistant", content: res.reply, sources: res.sources },
-      ]);
+      setMessages((cur) => [...cur, { role: "assistant", blocks: res.blocks }]);
     },
     onError: () => {
       setMessages((cur) => [
         ...cur,
         {
           role: "assistant",
-          content: "일시적인 오류로 답변을 생성하지 못했어요. 잠시 후 다시 시도해 주세요.",
+          blocks: [
+            {
+              type: "text",
+              content: "일시적인 오류로 답변을 생성하지 못했어요. 잠시 후 다시 시도해 주세요.",
+            },
+          ],
         },
       ]);
     },
   });
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const text = input.trim();
-    if (!text || chat.isPending) return;
+  /** 폼 제출과 suggested_replies chip 클릭이 공유하는 전송 로직 */
+  function sendMessage(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed || chat.isPending) return;
 
-    setMessages((cur) => [...cur, { role: "user", content: text }]);
+    setMessages((cur) => [
+      ...cur,
+      { role: "user", blocks: [{ type: "text", content: trimmed }] },
+    ]);
     setInput("");
 
     chat.mutate({
       threadId,
-      message: text,
+      message: trimmed,
       // 첫 turn 에만 프로필을 실어 보냄
       profile: !firstTurnSent && profile ? profile : undefined,
     });
     if (!firstTurnSent) setFirstTurnSent(true);
+  }
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    sendMessage(input);
   }
 
   function onReset() {
@@ -84,7 +115,7 @@ export function ChatWindow() {
   }
 
   return (
-    <div className="rounded-xl border bg-white flex flex-col h-[70vh]">
+    <div className="rounded-xl border bg-white flex flex-col h-[75vh]">
       <div className="border-b px-4 py-2 flex items-center justify-between text-sm">
         <div className="text-slate-500">
           thread: <code className="text-xs">{threadId.slice(0, 8)}…</code>
@@ -106,12 +137,12 @@ export function ChatWindow() {
         {messages.length === 0 && (
           <div className="text-center text-sm text-slate-400 py-10">
             {profile
-              ? "프로필을 참고해서 답변합니다. 궁금한 걸 물어보세요."
+              ? "프로필을 참고해서 답변합니다. 정책 금융이든 자산관리 로드맵이든 편하게 물어보세요."
               : "프로필을 먼저 입력하면 더 정확한 상담을 받을 수 있어요."}
           </div>
         )}
         {messages.map((m, i) => (
-          <Bubble key={i} msg={m} />
+          <Bubble key={i} msg={m} onSuggestionClick={sendMessage} />
         ))}
         {chat.isPending && (
           <div className="text-sm text-slate-500">
@@ -142,28 +173,28 @@ export function ChatWindow() {
   );
 }
 
-function Bubble({ msg }: { msg: Msg }) {
+function Bubble({
+  msg,
+  onSuggestionClick,
+}: {
+  msg: Msg;
+  onSuggestionClick: (text: string) => void;
+}) {
   const isUser = msg.role === "user";
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-          isUser
-            ? "bg-brand-600 text-white"
-            : "bg-slate-100 text-slate-900"
+        className={`max-w-[85%] rounded-2xl px-4 py-2 ${
+          isUser ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-900"
         }`}
       >
-        <div className="whitespace-pre-wrap leading-relaxed text-sm">
-          {msg.content}
-        </div>
-        {msg.sources && msg.sources.length > 0 && (
-          <div className="mt-2 pt-2 border-t border-slate-200 text-xs text-slate-500">
-            📄 참고:{" "}
-            {msg.sources
-              .map((s) => (s.url ? `${s.title}` : s.title))
-              .join(" · ")}
-          </div>
-        )}
+        {msg.blocks.map((b, i) => (
+          <ChatBlockRenderer
+            key={i}
+            block={b}
+            onSuggestionClick={onSuggestionClick}
+          />
+        ))}
       </div>
     </div>
   );

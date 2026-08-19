@@ -164,7 +164,7 @@ services/chatApi.ts   ──POST──►  /api/chat  (thread_id 기반)
 ```
 NEXT_PUBLIC_API_MODE=mock   # 기본, mockData.ts 사용
 NEXT_PUBLIC_API_MODE=live   # BenefitUp-Agent FastAPI 호출
-NEXT_PUBLIC_API_BASE=http://localhost:8000
+NEXT_PUBLIC_API_BASE=http://localhost:8010
 ```
 
 live 로 스위치할 때 컴포넌트 코드는 **한 줄도 안 바뀜.** `services/*` 안의
