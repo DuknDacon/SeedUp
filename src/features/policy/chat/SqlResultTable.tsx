@@ -28,7 +28,7 @@ export function SqlResultTable({
   return (
     <div className="mt-2 rounded-lg border bg-white overflow-hidden max-w-full">
       <div className="px-3 py-1.5 bg-slate-50 border-b text-xs font-medium text-slate-500">
-        🗄️ DB 조회 결과 {rowCount}건{tables.length > 0 ? ` · ${tables.join(", ")}` : ""}
+        🗄️ (테스트 확인용) DB 조회 결과 {rowCount}건{tables.length > 0 ? ` · ${tables.join(", ")}` : ""}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-[11px] text-left whitespace-nowrap">

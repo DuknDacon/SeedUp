@@ -55,7 +55,7 @@ export interface components {
             /** Threadid */
             threadId: string;
             /** Blocks */
-            blocks: (components["schemas"]["TextBlock"] | components["schemas"]["SourcesBlock"] | components["schemas"]["SqlTableBlock"])[];
+            blocks: (components["schemas"]["TextBlock"] | components["schemas"]["SourcesBlock"] | components["schemas"]["SqlTableBlock"] | components["schemas"]["RecommendationsBlock"])[];
         };
         /** ChatSourceOut */
         ChatSourceOut: {
@@ -68,6 +68,40 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * RecommendationItem
+         * @description AI 추천 카드 한 장.
+         *
+         *     LLM 최종 답변 텍스트에 실제로 등장한 row 만 골라(§agent/recommender.py) 만든다.
+         *     URL 이 없는 테이블(jeonse_loan_products 등)은 `url=None` 으로 내려가며,
+         *     프론트에서 버튼을 비활성화 or 숨김 처리하도록 계약.
+         */
+        RecommendationItem: {
+            /** Title */
+            title: string;
+            /** Subtitle */
+            subtitle?: string | null;
+            /** Url */
+            url?: string | null;
+            /** Table */
+            table: string;
+            /** Refkey */
+            refKey?: string | null;
+        };
+        /**
+         * RecommendationsBlock
+         * @description LLM 이 답변에서 실제 추천한 항목들의 카드 목록.
+         *     sql_table 이 SELECT 원본 전체라면, 이 블록은 그 subset + URL 부착 결과다.
+         */
+        RecommendationsBlock: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "recommendations";
+            /** Items */
+            items: components["schemas"]["RecommendationItem"][];
         };
         /** SourcesBlock */
         SourcesBlock: {
@@ -162,10 +196,6 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
-            /** Input */
-            input?: unknown;
-            /** Context */
-            ctx?: Record<string, never>;
         };
     };
     responses: never;

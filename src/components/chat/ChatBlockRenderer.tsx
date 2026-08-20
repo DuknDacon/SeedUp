@@ -9,6 +9,7 @@ import type { ChatBlock } from "@/types/api";
 import { PolicyResultBlock } from "@/features/policy/chat/PolicyResultBlock";
 import { LoanDetailBlock } from "@/features/policy/chat/LoanDetailBlock";
 import { SqlResultTable } from "@/features/policy/chat/SqlResultTable";
+import { RecommendationsBlockView } from "@/features/policy/chat/RecommendationsBlockView";
 import { RoadmapPlanBlock } from "@/features/roadmap/RoadmapPlanBlock";
 
 export function ChatBlockRenderer({
@@ -42,6 +43,9 @@ export function ChatBlockRenderer({
           rowCount={block.rowCount}
         />
       );
+
+    case "recommendations":
+      return <RecommendationsBlockView items={block.items} />;
 
     case "roadmap_plan":
       return <RoadmapPlanBlock plan={block.plan} />;
