@@ -11,7 +11,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Bot } from "lucide-react";
+import { Bot, Settings2 } from "lucide-react";
 import { sendChat } from "@/services/chatApi";
 import {
   getOrCreateThreadId,
@@ -22,6 +22,10 @@ import {
 } from "@/lib/profileStorage";
 import type { ChatBlock, ProfileAskField, UserProfile } from "@/types/api";
 import { ChatBlockRenderer } from "./ChatBlockRenderer";
+import {
+  IntegratedProfileForm,
+  isIntegratedProfileComplete,
+} from "./IntegratedProfileForm";
 
 type Msg = {
   role: "user" | "assistant";
@@ -47,18 +51,29 @@ export function ChatWindow() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
+  // 프로필 폼 표시 상태. 최초 진입시엔 프로필 완성 여부로, 이후엔 상단
+  // "조건 재입력" 버튼 클릭으로 열린다.
+  //   null   → 아직 판정 전 (localStorage 로드 대기)
+  //   true   → 폼 노출 (chat 은 잠금)
+  //   false  → chat 활성
+  const [showForm, setShowForm] = useState<boolean | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoSentRef = useRef(false);
 
   useEffect(() => {
     setThreadId(getOrCreateThreadId());
-    setProfile(loadProfile());
+    const p = loadProfile();
+    setProfile(p);
+    // 두 하위 에이전트 모두가 요구하는 조건이 다 채워져 있어야 대화 시작.
+    setShowForm(!isIntegratedProfileComplete(p));
   }, []);
 
   // 온보딩의 "자유 질문"은 첫 메시지로 자동 전송되는 게 의도. 한 번 보내면
   // 다음 방문 때 중복 전송되지 않도록 프로필에서 소비(제거)한다.
+  // 통합 폼(위)이 열려 있는 동안엔 자동 전송을 미룬다.
   useEffect(() => {
     if (autoSentRef.current) return;
+    if (showForm !== false) return;
     if (!threadId || !profile?.freeTextQuery) return;
     autoSentRef.current = true;
     const question = profile.freeTextQuery;
@@ -67,7 +82,7 @@ export function ChatWindow() {
     setProfile(updated);
     sendMessage(question);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [threadId, profile]);
+  }, [threadId, profile, showForm]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -156,6 +171,13 @@ export function ChatWindow() {
     setMessages([]);
   }
 
+  /** 통합 프로필 폼 제출 콜백 — 저장 후 대화 시작(또는 이어서). */
+  function onIntegratedProfileSubmit(next: UserProfile) {
+    saveProfile(next);
+    setProfile(next);
+    setShowForm(false);
+  }
+
   // 가장 최근 assistant 턴에서 나온 "큰 블록"들만 오른쪽 패널로 승격.
   // 마지막 assistant 응답이 결과 블록을 안 담고 있으면 그 이전 응답을 찾아 유지한다
   // (예: 사용자가 "왜?"라고 되물어서 답이 텍스트뿐이어도 이전 카드는 그대로 보이게).
@@ -168,6 +190,42 @@ export function ChatWindow() {
     }
     return [] as ChatBlock[];
   })();
+
+  // 최초 진입 판정 전(showForm === null) — 깜빡임 방지 스켈레톤.
+  if (showForm === null) {
+    return <div className="h-[60vh] rounded-xl border bg-white animate-pulse" />;
+  }
+
+  // 프로필 미완이면 우선 폼만 크게 노출해 대화 자체를 잠근다.
+  // 완성된 상태에서 "조건 재입력"을 눌러 다시 열 때도 같은 폼을 재사용하되,
+  // 그 경우엔 취소로 원 대화로 돌아갈 수 있게 한다.
+  if (showForm) {
+    const isRe = isIntegratedProfileComplete(profile);
+    return (
+      <div className="max-w-3xl mx-auto rounded-xl border bg-white p-5">
+        <div className="flex items-center mb-3">
+          <span className="w-10 h-10 grid place-items-center bg-brand-100 text-brand-700 rounded-md mr-3">
+            <Settings2 size={21} />
+          </span>
+          <div>
+            <h2 className="text-base font-semibold">
+              {isRe ? "조건 재입력" : "통합 상담 시작 전 조건 입력"}
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              정책 매칭(기능①)과 자산관리 로드맵(기능②) 모두에 필요한 조건을
+              한 번에 저장합니다. 대화 도중에는 상단 "조건 재입력" 버튼으로 다시
+              열 수 있어요.
+            </p>
+          </div>
+        </div>
+        <IntegratedProfileForm
+          initial={profile}
+          onSubmit={onIntegratedProfileSubmit}
+          onCancel={isRe ? () => setShowForm(false) : undefined}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-[minmax(340px,420px)_1fr] gap-5 items-start">
@@ -185,10 +243,19 @@ export function ChatWindow() {
               </span>
             </h2>
             <p className="text-[11px] text-slate-500 m-0 mt-1.5">
-              조건을 바꾸거나 추천 이유를 물어보세요.
+              조건을 바꾸려면 우측 상단 <b>조건 재입력</b>을 눌러주세요.
             </p>
           </div>
-          <span className="ml-auto text-[11px] text-slate-500 flex items-center gap-1.5 flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            title="저장된 조건을 다시 입력합니다"
+            className="ml-auto mr-3 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 border border-brand-200 bg-brand-50 hover:bg-brand-100 rounded-md px-2 py-1"
+          >
+            <Settings2 size={12} />
+            조건 재입력
+          </button>
+          <span className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-shrink-0">
             <i className="w-[7px] h-[7px] bg-emerald-500 rounded-full inline-block" />
             온라인
           </span>
@@ -213,9 +280,8 @@ export function ChatWindow() {
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 && (
             <div className="text-center text-sm text-slate-400 py-10">
-              {profile
-                ? "프로필을 참고해서 답변합니다. 정책 금융이든 자산관리 로드맵이든 편하게 물어보세요."
-                : "프로필을 먼저 입력하면 더 정확한 상담을 받을 수 있어요."}
+              저장된 조건을 참고해서 답변합니다. 정책 금융이든 자산관리
+              로드맵이든 편하게 물어보세요.
             </div>
           )}
           {messages.map((m, i) => (
