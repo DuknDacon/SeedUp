@@ -83,6 +83,12 @@ def _is_profile_incomplete(profile: dict[str, Any] | None) -> bool:
         if key == "birthDate":
             if not (p.get("birthDate") or p.get("age")):
                 return True
+        elif key == "annualIncomeKrw":
+            # 0 은 "무직이라 소득 없음" 같은 유효한 답변이다. None/빈 문자열만
+            # 미기입으로 본다 — 안 그러면 무소득 사용자가 폼을 채워도 매번 다시
+            # "누락"으로 판정돼 profile_ask 가 무한 반복되는 버그가 생긴다.
+            if p.get(key) in (None, ""):
+                return True
         elif p.get(key) in (None, "", 0):
             return True
     return False
