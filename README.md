@@ -1,10 +1,12 @@
 # SeedUp — 사회초년생 시드머니 빌드업 AI 비서
 
 두 개 기능으로 구성됨.
-- **① 정책 금융 매칭** — `../BenefitUp-Agent` 가 백엔드로 답변.
-- **② AI 자산관리 로드맵** — 다른 담당자가 개발 중 (곧 추가).
+- **① 정책 금융 매칭** — `../BenefitUp-Agent` 가 백엔드.
+- **② AI 자산관리 로드맵** — `../Roadmap-Agent` 가 백엔드.
 
-이 저장소(`SeedUp`)는 **두 기능의 공통 웹 프론트엔드**다.
+이 저장소(`SeedUp`)는 **두 기능의 공통 웹 프론트엔드 + 라우터**다.
+두 하위 에이전트는 각자 레포에서 자기 Docker compose 로 뜨고,
+SeedUp 은 그 앞단에 HTTP 로만 붙는다.
 
 ---
 
@@ -19,14 +21,28 @@
 
 ## 실행
 
+프론트 + 라우터만 로컬로 띄우고, 하위 두 에이전트는 각자 레포의 Docker
+compose 로 띄운다.
+
 ```bash
+# ① 하위 에이전트 백엔드 (각자 자기 .env 관리)
+docker compose -f ../BenefitUp-Agent/docker-compose.benefit.yml up -d
+docker compose -f ../Roadmap-Agent/docker-compose.roadmap.yml up -d
+
+# ② SeedUp 라우터 (:8030) — 두 에이전트 앞단에서 delegate
+cd router
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8030
+cd ..
+
+# ③ 프론트 (:3000)
 npm install
 cp .env.example .env.local
 npm run dev
 ```
 
-기본은 **mock 모드**라서 BenefitUp-Agent 가 안 떠있어도 웹은 완전히 동작한다.
-`http://localhost:3000` 접속.
+`.env.local` 의 `NEXT_PUBLIC_API_MODE=mock` 으로 두면 백엔드 없이도
+UI 는 완전히 동작 (`services/mockData.ts`, `mockRoadmapData.ts` 사용).
 
 ---
 

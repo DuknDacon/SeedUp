@@ -1,7 +1,7 @@
 /**
  * Mock 로드맵 응답 생성기.
  *
- * Roadmap-Agent FastAPI 백엔드(SeedUp/backend)가 로컬에 떠 있지 않아도
+ * Roadmap-Agent FastAPI 백엔드(../Roadmap-Agent 컨테이너)가 로컬에 떠 있지 않아도
  * UI를 확인할 수 있도록 입력값 기반으로 그럴듯한 시나리오를 계산해 만든다.
  * 실제 서비스에서는 이 계산을 Roadmap-Agent의 오케스트레이터가 수행한다.
  * 진짜 API가 붙으면 `roadmapApi.ts`의 mock 분기만 지우면 됨.

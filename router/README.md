@@ -34,16 +34,26 @@
 ## 실행
 
 라우터는 시작 시 `SeedUp/.env.local` (또는 `.env`) 을 자동으로 읽는다 —
-프론트·백엔드와 **같은 파일 하나**로 환경변수를 공유. 따로 export 안 해도 됨.
+프론트와 **같은 파일 하나**로 환경변수를 공유. 따로 export 안 해도 됨.
+하위 에이전트(BenefitUp-Agent, Roadmap-Agent) 의 크레덴셜은 각자 자기
+레포의 `.env` 에서 관리하므로, 여기 SeedUp `.env.local` 에는
+엔드포인트 URL 과 라우터 자체 LLM 키만 들어간다.
 
 ```bash
 # 최초 1회
-cp ../.env.example ../.env.local  # 저장소 루트의 통합 env
-# 그 파일에서 GOOGLE_API_KEY, BENEFIT_API, ROADMAP_API 등을 채운다.
+cp ../.env.example ../.env.local
+# 그 파일에서 GOOGLE_API_KEY(라우터 자체 LLM), BENEFIT_API, ROADMAP_API 를 채운다.
 
 cd SeedUp/router
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8030
+```
+
+하위 에이전트는 각 레포의 docker-compose 로 띄운다:
+
+```bash
+docker compose -f ../BenefitUp-Agent/docker-compose.benefit.yml up -d
+docker compose -f ../Roadmap-Agent/docker-compose.roadmap.yml up -d
 ```
 
 셸에 이미 `BENEFIT_API=...` 같은 값이 export 돼 있으면 그것이 우선 —
