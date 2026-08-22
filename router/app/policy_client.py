@@ -35,6 +35,21 @@ def _needs_personalization(query: str) -> bool:
     return bool(_PERSONALIZATION_RE.search(query or ""))
 
 
+# "조건 변경" 류 — 이미 프로필이 다 채워져 있어도 **다시 입력하고 싶다는 의도**이므로
+# _is_profile_incomplete() 체크와 무관하게 폼을 띄운다. 개인화 질문(위)은 "부족한
+# 정보를 채우려는" 의도라 이미 다 채워져 있으면 다시 안 물어보지만, 이건 반대로
+# "이미 아는 값도 사용자가 직접 고치고 싶다"는 의도라 항상 폼을 보여준다.
+_CONDITION_CHANGE_RE = re.compile(
+    r"(조건\s*(변경|수정|바꾸|바꿔)|바꾸고\s*싶|다른\s*조건|프로필\s*(변경|수정)|"
+    r"정보\s*(변경|수정)|(나이|소득|직업|혼인|주거)\s*(바꿔|바뀌|변경))"
+)
+
+
+def _wants_condition_change(query: str) -> bool:
+    """"조건 변경" 류의 명시적 프로필 재입력 요청인지 판별."""
+    return bool(_CONDITION_CHANGE_RE.search(query or ""))
+
+
 _REQUIRED_SLOTS: list[dict[str, str]] = [
     {
         "key": "birthDate",
@@ -200,9 +215,10 @@ async def call_policy_agent(
 ) -> tuple[list[dict[str, Any]], bool]:
     """BenefitUp-Agent 의 /api/chat 을 호출하고 (blocks, profile_delivered) 를 돌려준다.
 
-    "나한테 맞는 거 뭐야?" 같은 개인화 질문인데 프로필 핵심 필드가 비어 있으면
-    BenefitUp 을 부르지 않고 `profile_ask` 블록으로 먼저 되돌린다. roadmap_client
-    의 슬롯필링과 달리 **부족한 필드만 동적으로 고르지 않고 `_REQUIRED_SLOTS`
+    "나한테 맞는 거 뭐야?" 같은 개인화 질문인데 프로필 핵심 필드가 비어 있거나,
+    "조건 변경" 처럼 이미 아는 값도 사용자가 직접 고치고 싶어하면, BenefitUp 을
+    부르지 않고 `profile_ask` 블록으로 먼저 되돌린다. roadmap_client 의
+    슬롯필링과 달리 **부족한 필드만 동적으로 고르지 않고 `_REQUIRED_SLOTS`
     5개 전체를 매번 폼에 담는다** — 정책 매칭은 필드 하나하나가 자격 요건에
     영향을 줄 수 있어, 이미 채워진 값도 한 화면에서 같이 확인/수정하게 하는
     편이 안전하다는 판단. 일반 조회성 질문은 프로필 없이도 BenefitUp 이 답할
@@ -216,13 +232,16 @@ async def call_policy_agent(
                             경우까지 "전달됨"으로 잘못 표시하면, 이후 턴에서
                             영원히 profile 을 못 보내게 된다).
     """
-    if _needs_personalization(message) and _is_profile_incomplete(profile):
+    condition_change = _wants_condition_change(message)
+    if condition_change or (_needs_personalization(message) and _is_profile_incomplete(profile)):
+        prompt = (
+            "어떤 조건을 변경하고 싶으신지 아래에서 수정해 주세요."
+            if condition_change
+            else "본인에게 더 맞는 정책을 찾으려면 아래 정보를 확인할게요."
+        )
         return (
             [
-                {
-                    "type": "text",
-                    "content": "본인에게 더 맞는 정책을 찾으려면 아래 정보를 확인할게요.",
-                },
+                {"type": "text", "content": prompt},
                 {
                     "type": "profile_ask",
                     "context": "policy",
