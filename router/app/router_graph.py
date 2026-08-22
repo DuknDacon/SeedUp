@@ -217,7 +217,7 @@ async def _run_tool_calls(state: RouterState) -> dict[str, Any]:
 
         try:
             if name == "ask_policy_agent":
-                blocks = await call_policy_agent(
+                blocks, profile_sent = await call_policy_agent(
                     thread_id=state["policy_thread_id"],
                     message=query,
                     profile=None if delivered_policy else profile,
@@ -228,7 +228,7 @@ async def _run_tool_calls(state: RouterState) -> dict[str, Any]:
                     "name": name,
                     "blocks": blocks,
                     "summary": summary,
-                    "flags": {"policy": True},
+                    "flags": {"policy": True, "profile_delivered": profile_sent},
                 }
 
             if name == "ask_roadmap_agent":
@@ -298,7 +298,12 @@ async def _run_tool_calls(state: RouterState) -> dict[str, Any]:
             )
         )
         collected.extend(r["blocks"])
-        if r["flags"].get("policy") and not delivered_policy:
+        # profile_delivered 는 "실제로 BenefitUp 에 프로필을 실어보냈는지" 를
+        # 뜻한다 (플래그 자체가 아니라). 프로필이 없어 익명 요청으로 보낸
+        # 턴까지 "전달됨"으로 표시하면, 이후 사용자가 profile_ask 폼을 채워도
+        # 위의 `profile=None if delivered_policy else profile` 때문에 영원히
+        # profile 을 못 보내게 되는 버그가 생긴다.
+        if r["flags"].get("policy") and r["flags"].get("profile_delivered") and not delivered_policy:
             updates["profile_delivered_policy"] = True
         if r["flags"].get("roadmap") and not delivered_roadmap:
             updates["profile_delivered_roadmap"] = True
