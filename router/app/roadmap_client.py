@@ -87,8 +87,17 @@ async def call_roadmap_agent(
     message: str,
     profile: dict[str, Any] | None,
     last_plan: dict[str, Any] | None = None,  # noqa: ARG001 — 계약 유지용
+    is_first_call: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
     """Roadmap-Agent 를 부르고 (ChatBlock 리스트, requestPatch) 를 돌려준다.
+
+    is_first_call:
+        이 라우터 thread 안에서 Roadmap-Agent 를 처음 부르는 turn 인지.
+        True 면 사용자 원문 앞에 "첫 진입" 힌트를 붙여 넘긴다. 통합 상담에서
+        기능① → 기능② 로 화제가 넘어가는 첫 turn 에, 원문이 조건 재진술처럼
+        보여 `conversationIntent=unclear` 로 되묻히는 경우를 줄이기 위함.
+        (라우터는 자기 관점에선 이어지는 대화지만, Roadmap-Agent 는 자기
+        thread 에 이력이 없어 그 문맥이 없다.)
 
     Returns:
         blocks: 프론트에 relay 할 ChatBlock dict 리스트.
@@ -114,7 +123,17 @@ async def call_roadmap_agent(
         )
 
     assert profile is not None  # _missing_slots 통과 = 프로필 존재
-    payload = _build_payload(profile, question=message, thread_id=thread_id)
+    question = message
+    if is_first_call:
+        # 저장된 조건으로 초기 로드맵을 우선 만들어 달라는 명시적 힌트. 원문은
+        # 그대로 실어 사용자 후속 의도(“3년 뒤 얼마”)도 함께 답변하도록 유지.
+        question = (
+            "[통합 상담: 로드맵 기능 첫 요청입니다. 함께 전달된 프로필의 조건을 "
+            "그대로 사용해 초기 로드맵을 먼저 만들고, 그 결과를 바탕으로 아래 "
+            "사용자 원문에 답해주세요. 되묻기 없이 진행해도 됩니다.]\n\n"
+            f"사용자 원문: {message}"
+        )
+    payload = _build_payload(profile, question=question, thread_id=thread_id)
 
     async with httpx.AsyncClient(timeout=ROADMAP_TIMEOUT) as c:
         r = await c.post(f"{ROADMAP_API}/api/v1/roadmaps", json=payload)

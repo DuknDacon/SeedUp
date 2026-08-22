@@ -234,11 +234,14 @@ async def _run_tool_calls(state: RouterState) -> dict[str, Any]:
             if name == "ask_roadmap_agent":
                 # Roadmap-Agent 는 매 요청마다 프로필 전량을 요구하므로 delivered
                 # 플래그와 무관하게 항상 실려보낸다 (아니면 422).
+                # 첫 호출 여부는 "화제 전환 첫 turn" 힌트 주입에 쓰인다
+                # (roadmap_client 의 is_first_call 주석 참고).
                 blocks, request_patch = await call_roadmap_agent(
                     thread_id=state["roadmap_thread_id"],
                     message=query,
                     profile=profile,
                     last_plan=last_plan,
+                    is_first_call=not delivered_roadmap,
                 )
                 # roadmap_plan 블록이 새로 왔으면 캐시 갱신
                 new_plan = next(
