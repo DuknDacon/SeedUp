@@ -10,13 +10,26 @@ from __future__ import annotations
 
 import os
 import uuid
+from pathlib import Path
+from typing import Any
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from langchain_core.messages import HumanMessage
 
-from .router_graph import get_app as get_router_app
-from .schemas import ChatRequestIn, ChatResponseOut
+
+# 통합 .env 로드: SeedUp/.env.local 을 라우터가 함께 읽는다.
+# 프론트(Next.js) 가 자동으로 읽는 그 파일 하나를 세 프로세스가 공유하기 위함.
+# 이미 셸에 export 된 값이 있으면 그것을 우선 (override=False).
+_SEEDUP_ROOT = Path(__file__).resolve().parents[2]
+for _name in (".env.local", ".env"):
+    _p = _SEEDUP_ROOT / _name
+    if _p.is_file():
+        load_dotenv(_p, override=False)
+
+from .router_graph import get_app as get_router_app  # noqa: E402 — env 로드 이후 import
+from .schemas import ChatRequestIn, ChatResponseOut  # noqa: E402
 
 
 app = FastAPI(title="SeedUp Router", version="0.1.0")
@@ -77,7 +90,22 @@ def chat(req: ChatRequestIn) -> ChatResponseOut:
         # 하위 블록보다 앞에 짧은 안내가 오도록 head 에 삽입.
         blocks.insert(0, {"type": "text", "content": content.strip()})
 
-    return ChatResponseOut(threadId=req.threadId, blocks=blocks)
+    # 이번 turn 에 프로필이 patch 로 바뀌었으면 (예: Roadmap-Agent 의 requestPatch
+    # 또는 slot-fill 결과) 최종 프로필을 실어보내서 프론트가 localStorage 를
+    # 동기화할 수 있게 한다. patch 가 없으면 None → 프론트는 무시.
+    final_profile = final.get("profile")
+    original_profile = profile or {}
+    profile_patch: dict[str, Any] | None = None
+    if final_profile and final_profile != original_profile:
+        profile_patch = {
+            k: v for k, v in final_profile.items() if original_profile.get(k) != v
+        }
+
+    return ChatResponseOut(
+        threadId=req.threadId,
+        blocks=blocks,
+        profilePatch=profile_patch,
+    )
 
 
 # ── 개발용: thread_id 자동 발급 편의 엔드포인트 ─────────────────

@@ -232,10 +232,12 @@ async def _run_tool_calls(state: RouterState) -> dict[str, Any]:
                 }
 
             if name == "ask_roadmap_agent":
-                blocks = await call_roadmap_agent(
+                # Roadmap-Agent 는 매 요청마다 프로필 전량을 요구하므로 delivered
+                # 플래그와 무관하게 항상 실려보낸다 (아니면 422).
+                blocks, request_patch = await call_roadmap_agent(
                     thread_id=state["roadmap_thread_id"],
                     message=query,
-                    profile=None if delivered_roadmap else profile,
+                    profile=profile,
                     last_plan=last_plan,
                 )
                 # roadmap_plan 블록이 새로 왔으면 캐시 갱신
@@ -249,7 +251,13 @@ async def _run_tool_calls(state: RouterState) -> dict[str, Any]:
                     "name": name,
                     "blocks": blocks,
                     "summary": summary,
-                    "flags": {"roadmap": True, "new_plan": new_plan},
+                    "flags": {
+                        "roadmap": True,
+                        "new_plan": new_plan,
+                        # Roadmap-Agent 가 이번 turn 에 조정한 조건 patch. 라우터
+                        # state.profile 에 병합해서 다음 turn 부터 반영.
+                        "profile_patch": request_patch,
+                    },
                 }
 
             return {
@@ -279,6 +287,8 @@ async def _run_tool_calls(state: RouterState) -> dict[str, Any]:
     tool_messages: list[ToolMessage] = []
     collected: list[dict[str, Any]] = []
     updates: dict[str, Any] = {}
+    # 이번 turn 에 여러 툴이 프로필 patch 를 낸 경우 순서대로 병합.
+    merged_profile: dict[str, Any] | None = None
     for r in results:
         tool_messages.append(
             ToolMessage(
@@ -294,6 +304,14 @@ async def _run_tool_calls(state: RouterState) -> dict[str, Any]:
             updates["profile_delivered_roadmap"] = True
         if r["flags"].get("new_plan"):
             updates["last_roadmap_plan"] = r["flags"]["new_plan"]
+        patch = r["flags"].get("profile_patch")
+        if patch:
+            if merged_profile is None:
+                merged_profile = dict(profile or {})
+            merged_profile.update(patch)
+
+    if merged_profile is not None:
+        updates["profile"] = merged_profile
 
     updates["messages"] = tool_messages
     updates["collected_blocks"] = collected

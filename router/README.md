@@ -33,25 +33,51 @@
 
 ## 실행
 
+라우터는 시작 시 `SeedUp/.env.local` (또는 `.env`) 을 자동으로 읽는다 —
+프론트·백엔드와 **같은 파일 하나**로 환경변수를 공유. 따로 export 안 해도 됨.
+
 ```bash
+# 최초 1회
+cp ../.env.example ../.env.local  # 저장소 루트의 통합 env
+# 그 파일에서 GOOGLE_API_KEY, BENEFIT_API, ROADMAP_API 등을 채운다.
+
 cd SeedUp/router
 pip install -r requirements.txt
-BENEFIT_API=http://localhost:8010 \
-ROADMAP_API=http://localhost:8020 \
-GOOGLE_API_KEY=... \
 uvicorn app.main:app --reload --port 8030
 ```
 
-프론트 `.env.local`:
+셸에 이미 `BENEFIT_API=...` 같은 값이 export 돼 있으면 그것이 우선 —
+`.env.local` 은 비어 있는 값만 채우는 방식이라 개발자 개인 override 가 항상 이김.
 
-```
-NEXT_PUBLIC_API_MODE=live
-NEXT_PUBLIC_API_BASE=http://localhost:8030
-```
+## Roadmap-Agent 대화형 API — 이미 있음 (재발견)
 
-## 확정 필요 (Roadmap-Agent 담당자와)
+처음엔 "Roadmap-Agent 에 `/api/chat` 이 없다" 로 알려졌으나, 실제로는
+**같은 `POST /api/v1/roadmaps` 에 대화형이 얹혀 있음**:
 
-라우터의 `ask_roadmap_agent` 툴이 부를 엔드포인트가 필요합니다.
-현재 Roadmap-Agent는 `POST /api/v1/roadmaps` 만 있고 대화형 엔드포인트가
-없습니다. `app/roadmap_client.py`의 `TODO(roadmap-api)` 위치를 담당자와
-합의된 계약으로 채워주세요.
+- request 에 `threadId`(UUID) + `question` 추가 → thread 별 대화 상태 유지
+- response 의 `chatReply` / `conversationStatus` / `conversationIntent`
+  / `requestPatch` 로 자연어 응답과 조건 patch 반환
+- 내부적으로 `RoadmapConversationGraph` + `SqliteConversationStore` 사용
+
+따라서 `app/roadmap_client.py` 는 이 계약을 직접 부른다. Roadmap-Agent
+자체 코드는 여전히 안 건드림.
+
+## Slot-filling
+
+Roadmap-Agent 는 매 요청마다 프로필 전량(`birthDate`, `monthlyBudget`,
+`targetDate`, `householdSize`, region codes, …) 을 요구한다. BenefitUp
+프로필만 있는 사용자는 이 중 일부가 없으므로:
+
+- 유추 가능한 필드(`regionProvinceCode`, `regionDistrictCode`, `region`,
+  `maritalStatus`, `employed`, income 필드)는 `_build_payload` 가 자동 파생
+- 유추 불가능한 슬롯(`birthDate`, `monthlyBudget`, `targetDate`,
+  `householdSize`)이 부족하면 API 를 부르지 않고 `profile_ask` 블록으로
+  프론트에 반환 → 채팅 안 미니 폼으로 사용자에게 그 슬롯만 물어봄
+
+## requestPatch 반영
+
+로드맵 대화 도중 사용자가 조건 변경("월 70만원으로 바꿔줘") 을 요청하면
+Roadmap-Agent 가 `requestPatch` 로 delta 를 돌려준다. 라우터는:
+
+1. `RouterState.profile` 에 patch 병합 (다음 turn 부터 반영)
+2. 응답의 `profilePatch` 필드로 프론트에 전달 (localStorage 동기화)

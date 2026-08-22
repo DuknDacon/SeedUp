@@ -16,10 +16,11 @@ import { sendChat } from "@/services/chatApi";
 import {
   getOrCreateThreadId,
   loadProfile,
+  mergeProfile,
   resetThreadId,
   saveProfile,
 } from "@/lib/profileStorage";
-import type { ChatBlock, UserProfile } from "@/types/api";
+import type { ChatBlock, ProfileAskField, UserProfile } from "@/types/api";
 import { ChatBlockRenderer } from "./ChatBlockRenderer";
 
 type Msg = {
@@ -46,7 +47,6 @@ export function ChatWindow() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
-  const [firstTurnSent, setFirstTurnSent] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoSentRef = useRef(false);
 
@@ -80,6 +80,12 @@ export function ChatWindow() {
     mutationFn: sendChat,
     onSuccess: (res) => {
       setMessages((cur) => [...cur, { role: "assistant", blocks: res.blocks }]);
+      // 라우터/하위 에이전트가 프로필을 조정했으면 (예: Roadmap-Agent 의
+      // requestPatch) localStorage 를 병합 갱신해 다음 turn 부터 반영.
+      if (res.profilePatch && Object.keys(res.profilePatch).length > 0) {
+        const merged = mergeProfile(res.profilePatch);
+        if (merged) setProfile(merged);
+      }
     },
     onError: () => {
       setMessages((cur) => [
@@ -97,8 +103,14 @@ export function ChatWindow() {
     },
   });
 
-  /** 폼 제출과 suggested_replies chip 클릭이 공유하는 전송 로직 */
-  function sendMessage(text: string) {
+  /** 폼 제출과 suggested_replies chip 클릭이 공유하는 전송 로직.
+   *
+   * 프로필은 **매 turn** 실어 보낸다. Roadmap-Agent 는 매 요청마다 프로필
+   * 전량을 요구하고, slot-fill 로 방금 채운 필드가 다음 turn 에 반드시 실려야
+   * 하기 때문. 라우터의 프로필 캐시가 있긴 하지만 브라우저 새로고침·재접속
+   * 상황에서 프로필이 유실되지 않도록 프론트를 source of truth 로 유지한다.
+   */
+  function sendMessage(text: string, profileOverride?: UserProfile | null) {
     const trimmed = text.trim();
     if (!trimmed || chat.isPending) return;
 
@@ -108,13 +120,29 @@ export function ChatWindow() {
     ]);
     setInput("");
 
+    const nextProfile = profileOverride ?? profile;
     chat.mutate({
       threadId,
       message: trimmed,
-      // 첫 turn 에만 프로필을 실어 보냄
-      profile: !firstTurnSent && profile ? profile : undefined,
+      profile: nextProfile ?? undefined,
     });
-    if (!firstTurnSent) setFirstTurnSent(true);
+  }
+
+  /** profile_ask 미니 폼 제출 콜백. 필드값을 프로필에 병합 저장하고 자동으로
+   * 다음 turn 을 발송한다 — 사용자는 채팅에 문장을 다시 안 써도 됨. */
+  function onProfileAskSubmit(
+    patch: Partial<UserProfile>,
+    fields: ProfileAskField[],
+  ) {
+    const merged = mergeProfile(patch);
+    if (merged) setProfile(merged);
+    const answerText =
+      "제공된 정보: " +
+      fields
+        .map((f) => `${f.label}=${(patch as Record<string, unknown>)[f.key] ?? "-"}`)
+        .join(", ");
+    // 병합된 프로필을 즉시 실어보내기 위해 override 로 넘김 (setState 반영 지연 회피).
+    sendMessage(answerText, merged);
   }
 
   function onSubmit(e: React.FormEvent) {
@@ -126,7 +154,6 @@ export function ChatWindow() {
     resetThreadId();
     setThreadId(getOrCreateThreadId());
     setMessages([]);
-    setFirstTurnSent(false);
   }
 
   // 가장 최근 assistant 턴에서 나온 "큰 블록"들만 오른쪽 패널로 승격.
@@ -192,7 +219,12 @@ export function ChatWindow() {
             </div>
           )}
           {messages.map((m, i) => (
-            <Bubble key={i} msg={m} onSuggestionClick={sendMessage} />
+            <Bubble
+              key={i}
+              msg={m}
+              onSuggestionClick={sendMessage}
+              onProfileAsk={onProfileAskSubmit}
+            />
           ))}
           {chat.isPending && (
             <div className="text-sm text-slate-500">
@@ -237,6 +269,7 @@ export function ChatWindow() {
                 key={i}
                 block={b}
                 onSuggestionClick={sendMessage}
+                onProfileAsk={onProfileAskSubmit}
               />
             ))}
           </div>
@@ -249,9 +282,11 @@ export function ChatWindow() {
 function Bubble({
   msg,
   onSuggestionClick,
+  onProfileAsk,
 }: {
   msg: Msg;
   onSuggestionClick: (text: string) => void;
+  onProfileAsk: (patch: Partial<UserProfile>, fields: ProfileAskField[]) => void;
 }) {
   const isUser = msg.role === "user";
   // 큰 결과 블록은 오른쪽 패널에서 렌더되므로 버블에서는 걸러낸다.
@@ -271,6 +306,7 @@ function Bubble({
             key={i}
             block={b}
             onSuggestionClick={onSuggestionClick}
+            onProfileAsk={onProfileAsk}
           />
         ))}
       </div>

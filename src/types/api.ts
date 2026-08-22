@@ -29,7 +29,40 @@ import type { components } from "./generated/backend.gen";
 // 유저 프로필 (§5) — backend.gen.ts 의 UserProfileIn 재수출
 // ============================================================
 
-export type UserProfile = components["schemas"]["UserProfileIn"];
+/**
+ * BenefitUp-Agent 의 `UserProfileIn` 을 그대로 재수출하되, 통합 상담(§챗)에서만
+ * 필요한 Roadmap-Agent 프로필 필드를 optional 로 확장한다.
+ *
+ * 이 확장 필드는:
+ *   - 정책 화면(§유저 프로필 폼)에서는 안 보임 (BenefitUp-Agent 는 무시)
+ *   - 통합 상담에서 로드맵 호출 전에 slot-fill 로 채워지거나,
+ *     Roadmap-Agent 의 `requestPatch` 로 갱신됨
+ *
+ * 원본 UserProfileIn 은 `openapi-typescript` 로 재생성되므로 여기서
+ * intersect 만 해두면 백엔드 스키마가 바뀔 때 자동으로 따라간다.
+ */
+export type RoadmapProfileFields = {
+  birthDate?: string | null; // "YYYY-MM-DD"
+  monthlyBudget?: number | null; // 원 단위
+  targetDate?: string | null; // "YYYY-MM-DD"
+  householdSize?: number | null;
+  previousAnnualIncome?: number | null;
+  currentAnnualIncome?: number | null;
+  region?: string | null;
+  regionProvinceCode?: string | null;
+  regionDistrictCode?: string | null;
+  maritalStatus?: "single" | "married" | null;
+  employed?: boolean | null;
+  isSmeEmployee?: boolean | null;
+  monthlyTakeHome?: number | null;
+  targetAmount?: number | null;
+  hasEmergencyFund?: boolean | null;
+  riskLevel?: "stable" | "balanced" | "growth" | null;
+  investmentCap?: number | null;
+};
+
+export type UserProfile = components["schemas"]["UserProfileIn"] &
+  RoadmapProfileFields;
 
 // enum 성격 필드는 UserProfile 에서 인덱싱해서 뽑는다 — api/schemas.py 의 Literal 이
 // 바뀌면 여기도 재생성 한 번으로 같이 바뀐다 (손으로 다시 나열할 필요 없음).
@@ -153,16 +186,47 @@ type RoadmapPlanBlock = { type: "roadmap_plan"; plan: RoadmapPlanPayload };
 /** 이어서 물어볼 만한 질문 chip. 클릭하면 그 문장 그대로 다음 turn으로 전송 */
 type SuggestedRepliesBlock = { type: "suggested_replies"; suggestions: string[] };
 
+/**
+ * 라우터가 하위 에이전트를 호출하기 전에 프로필 필드가 부족하다고 판단한 경우
+ * 반환하는 블록. 프론트는 이 블록을 미니 폼으로 렌더해 사용자에게 그 필드만
+ * 물어보고, 답을 프로필에 병합한 뒤 다음 turn 을 보낸다.
+ *
+ * context: "roadmap" — 어느 에이전트 호출을 위해 물어보는 슬롯인지 (안내 문구용)
+ * fields[].key         — profile 필드명 (그대로 프로필에 저장)
+ * fields[].label       — 폼 라벨
+ * fields[].question    — 대화창에 표시할 안내 문구
+ * fields[].inputType   — "date" | "number" | "text"
+ */
+export type ProfileAskField = {
+  key: string;
+  label: string;
+  question: string;
+  inputType: "date" | "number" | "text";
+};
+
+type ProfileAskBlock = {
+  type: "profile_ask";
+  context: "roadmap" | "policy";
+  fields: ProfileAskField[];
+};
+
 export type ChatBlock =
   | GeneratedChatBlock
   | PolicyResultsBlock
   | LoanDetailBlock
   | RoadmapPlanBlock
-  | SuggestedRepliesBlock;
+  | SuggestedRepliesBlock
+  | ProfileAskBlock;
 
 export type ChatResponse = {
   threadId: string;
   blocks: ChatBlock[];
+  /**
+   * 이번 turn 에 라우터/하위 에이전트가 프로필을 조정했으면 그 delta.
+   * 프론트는 이 값을 받아 localStorage 의 프로필을 병합 갱신한다.
+   * 없으면 (미변경) null.
+   */
+  profilePatch?: Partial<UserProfile> | null;
 };
 
 // ============================================================

@@ -5,20 +5,24 @@
  * 두 기능의 결과를 한 대화 화면 안에서 자연스럽게 이어 보여줄 수 있다.
  * 새 블록 타입이 생기면 여기 case 하나만 추가하면 됨.
  */
-import type { ChatBlock } from "@/types/api";
+import type { ChatBlock, ProfileAskField, UserProfile } from "@/types/api";
 import { PolicyResultBlock } from "@/features/policy/chat/PolicyResultBlock";
 import { LoanDetailBlock } from "@/features/policy/chat/LoanDetailBlock";
 import { SqlResultTable } from "@/features/policy/chat/SqlResultTable";
 import { RecommendationsBlockView } from "@/features/policy/chat/RecommendationsBlockView";
 import { RoadmapPlanBlock } from "@/features/roadmap/RoadmapPlanBlock";
+import { ProfileAskForm } from "./ProfileAskForm";
 
 export function ChatBlockRenderer({
   block,
   onSuggestionClick,
+  onProfileAsk,
 }: {
   block: ChatBlock;
   /** suggested_replies 블록의 chip 클릭 시 그 문장을 그대로 다음 turn 으로 전송 */
   onSuggestionClick?: (text: string) => void;
+  /** profile_ask 블록의 미니 폼 제출 콜백. 부모(ChatWindow)가 profile 병합 + 다음 turn 발송 담당. */
+  onProfileAsk?: (patch: Partial<UserProfile>, fields: ProfileAskField[]) => void;
 }) {
   switch (block.type) {
     case "text":
@@ -49,6 +53,15 @@ export function ChatBlockRenderer({
 
     case "roadmap_plan":
       return <RoadmapPlanBlock plan={block.plan} />;
+
+    case "profile_ask":
+      return (
+        <ProfileAskForm
+          context={block.context}
+          fields={block.fields}
+          onSubmit={onProfileAsk}
+        />
+      );
 
     case "sources":
       if (block.items.length === 0) return null;

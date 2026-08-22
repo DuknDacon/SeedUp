@@ -39,6 +39,11 @@ def _load_server_environment() -> Path:
     agent_root = Path(roadmap_agent.__file__).resolve().parents[2]
     load_env_file(agent_root / ".env")
     load_env_file(Path(__file__).resolve().parents[1] / ".env")
+    # 통합 .env: SeedUp 루트의 .env.local (또는 .env). 세 프로세스가 공유하는
+    # 단일 파일로, 개별 .env 를 지워도 여기 값이 살아 있으면 계속 뜬다.
+    seedup_root = Path(__file__).resolve().parents[2]
+    for _name in (".env.local", ".env"):
+        load_env_file(seedup_root / _name)
     return agent_root
 
 
