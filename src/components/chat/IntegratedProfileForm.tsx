@@ -7,6 +7,16 @@
  *
  * 저장은 localStorage(seedup:profile) 로 통일. "조건 재입력"으로 다시 열 때는
  * initial 로 기존 값을 채워 넣는다.
+ *
+ * ⚠️ 기능② 필드 중 `region`/`hasEmergencyFund`/그 외 세부 항목은 한때 이 폼에
+ * 없었다. `router/app/roadmap_client.py`의 `_REQUIRED_SLOTS`가 "우리가
+ * 유추 불가능한 필드"만 최소로 골라 슬롯필링 대상으로 잡았고(BenefitUp
+ * 필드에서 파생 가능한 것/optional로 분류된 것은 제외), 정작 Roadmap-Agent
+ * 자체 스키마(`RoadmapCreateRequest`)와 그 온보딩 UI(`RoadmapExperience.tsx`
+ * 의 `REQUIRED_FIELD_LABELS`)가 요구하는 필드 목록은 참고하지 않아 생긴
+ * 누락이었다. 라우터가 빈 값을 조용히 기본값(`region: "서울"`,
+ * `hasEmergencyFund: false` 등)으로 채워 보내 에러 없이 넘어가다 보니
+ * 드러나지 않았다. 지금은 그 필드들도 여기서 받는다.
  */
 "use client";
 
@@ -41,7 +51,9 @@ const HOUSING: { value: HousingStatus; label: string }[] = [
 /**
  * 프로필이 통합 상담을 시작하기에 충분한지 검사.
  * 정책(_REQUIRED_SLOTS: birthDate/annualIncome/employment/marital/housing) +
- * 로드맵(_missing_slots: birthDate/monthlyBudget/targetDate/householdSize)
+ * 로드맵(Roadmap-Agent `RoadmapCreateRequest` 필수 필드 중, employed/maritalStatus/
+ * regionProvinceCode/regionDistrictCode 처럼 다른 필드에서 파생 가능한 것을 뺀
+ * birthDate/monthlyBudget/targetDate/householdSize/region/hasEmergencyFund)
  * 두 에이전트의 필수 필드를 합친 세트.
  *
  * 기존 온보딩만 거친 유저는 birthDate 대신 age 만 있을 수 있어 age 로도 통과시킨다
@@ -61,6 +73,8 @@ export function isIntegratedProfileComplete(
   const hasTarget = Boolean(p.targetDate);
   const hasHousehold =
     typeof p.householdSize === "number" && p.householdSize > 0;
+  const hasRegionName = Boolean(p.region);
+  const hasEmergencyFundAnswer = typeof p.hasEmergencyFund === "boolean";
   return (
     hasBirth &&
     hasIncome &&
@@ -69,7 +83,9 @@ export function isIntegratedProfileComplete(
     hasHousing &&
     hasBudget &&
     hasTarget &&
-    hasHousehold
+    hasHousehold &&
+    hasRegionName &&
+    hasEmergencyFundAnswer
   );
 }
 
@@ -102,6 +118,7 @@ export function IntegratedProfileForm({
   const [regionCode, setRegionCode] = useState<string>(
     initial?.regionCode ?? initial?.regionDistrictCode ?? "11110",
   );
+  const [region, setRegion] = useState<string>(initial?.region ?? "");
   const [monthlyBudgetManwon, setMonthlyBudgetManwon] = useState<string>(
     initial?.monthlyBudget != null
       ? String(Math.round(initial.monthlyBudget / 10_000))
@@ -112,6 +129,41 @@ export function IntegratedProfileForm({
   );
   const [householdSize, setHouseholdSize] = useState<string>(
     initial?.householdSize != null ? String(initial.householdSize) : "1",
+  );
+  // 로드맵 필수: 비상자금 보유 여부. "" = 아직 선택 안 함(제출 차단).
+  const [hasEmergencyFund, setHasEmergencyFund] = useState<
+    "" | "true" | "false"
+  >(
+    typeof initial?.hasEmergencyFund === "boolean"
+      ? String(initial.hasEmergencyFund) as "true" | "false"
+      : "",
+  );
+  // 로드맵 선택 항목 — 비워두면 각각의 자연스러운 기본값으로 처리됨.
+  const [previousIncomeManwon, setPreviousIncomeManwon] = useState<string>(
+    initial?.previousAnnualIncome != null
+      ? String(Math.round(initial.previousAnnualIncome / 10_000))
+      : "",
+  );
+  const [isSmeEmployee, setIsSmeEmployee] = useState<"" | "true" | "false">(
+    typeof initial?.isSmeEmployee === "boolean"
+      ? (String(initial.isSmeEmployee) as "true" | "false")
+      : "",
+  );
+  const [monthlyTakeHomeManwon, setMonthlyTakeHomeManwon] = useState<string>(
+    initial?.monthlyTakeHome != null
+      ? String(Math.round(initial.monthlyTakeHome / 10_000))
+      : "",
+  );
+  const [targetAmountManwon, setTargetAmountManwon] = useState<string>(
+    initial?.targetAmount != null
+      ? String(Math.round(initial.targetAmount / 10_000))
+      : "",
+  );
+  const [riskLevel, setRiskLevel] = useState<
+    "" | "stable" | "balanced" | "growth"
+  >(initial?.riskLevel ?? "");
+  const [investmentCap, setInvestmentCap] = useState<string>(
+    initial?.investmentCap != null ? String(initial.investmentCap) : "",
   );
 
   const [err, setErr] = useState<string | null>(null);
@@ -131,7 +183,10 @@ export function IntegratedProfileForm({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!birthDate) return setErr("생년월일을 입력해주세요.");
+    if (!region.trim()) return setErr("거주 지역명을 입력해주세요.");
     if (!targetDate) return setErr("목표 시점을 입력해주세요.");
+    if (hasEmergencyFund === "")
+      return setErr("비상자금 보유 여부를 선택해주세요.");
     const income = Number(incomeManwon.replace(/[,_\s]/g, ""));
     if (!Number.isFinite(income) || income < 0)
       return setErr("연 소득을 확인해주세요.");
@@ -146,12 +201,20 @@ export function IntegratedProfileForm({
     const districtCode = (regionCode || "11110").trim();
     const provinceCode = districtCode.slice(0, 2) || "11";
     const age = deriveAge(birthDate);
+    const currentIncomeKrw = Math.round(income * 10_000);
+
+    // 선택 항목은 빈 문자열이면 undefined 로 흘려보내 백엔드/에이전트가 각자의
+    // 기본값(예: riskLevel → "balanced")을 적용하게 둔다. 값이 있으면 만원 → 원.
+    const toWonOrUndefined = (manwon: string) =>
+      manwon.trim() === "" ? undefined : Math.round(Number(manwon) * 10_000);
+    const toBoolOrUndefined = (v: "" | "true" | "false") =>
+      v === "" ? undefined : v === "true";
 
     const next: UserProfile = {
       ...(initial ?? {}),
       // 정책 매칭용 필드
       age: age ?? initial?.age ?? 27,
-      annualIncomeKrw: Math.round(income * 10_000),
+      annualIncomeKrw: currentIncomeKrw,
       regionCode: districtCode,
       employmentType: employment,
       marriageStatus: marriage,
@@ -163,8 +226,19 @@ export function IntegratedProfileForm({
       monthlyBudget: Math.round(budget * 10_000),
       targetDate,
       householdSize: hh,
+      region: region.trim(),
       regionDistrictCode: districtCode,
       regionProvinceCode: provinceCode,
+      hasEmergencyFund: hasEmergencyFund === "true",
+      // 현재 연소득은 위 annualIncomeKrw 와 동일 값. 직전년도 소득은 비워두면
+      // Roadmap-Agent 쪽에서 현재 소득과 같은 값으로 처리된다(소득 변동 없음 가정).
+      currentAnnualIncome: currentIncomeKrw,
+      previousAnnualIncome: toWonOrUndefined(previousIncomeManwon) ?? null,
+      isSmeEmployee: toBoolOrUndefined(isSmeEmployee) ?? null,
+      monthlyTakeHome: toWonOrUndefined(monthlyTakeHomeManwon) ?? null,
+      targetAmount: toWonOrUndefined(targetAmountManwon) ?? null,
+      riskLevel: riskLevel || null,
+      investmentCap: investmentCap.trim() === "" ? null : Number(investmentCap),
       // 통합 상담에서는 온보딩 자유질문 자동 전송을 재사용하지 않는다.
       freeTextQuery: null,
     };
@@ -192,6 +266,16 @@ export function IntegratedProfileForm({
               onChange={(e) => setRegionCode(e.target.value)}
               className="input"
               placeholder="11110"
+            />
+          </Field>
+          <Field label="거주 지역명" hint="예: 서울특별시 종로구">
+            <input
+              type="text"
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+              className="input"
+              placeholder="서울특별시 종로구"
+              required
             />
           </Field>
           <Field label="연 소득 (만원)" hint="세전 기준">
@@ -289,7 +373,101 @@ export function IntegratedProfileForm({
               required
             />
           </Field>
+          <Field label="비상자금 보유 여부">
+            <select
+              value={hasEmergencyFund}
+              onChange={(e) =>
+                setHasEmergencyFund(e.target.value as "" | "true" | "false")
+              }
+              className="input"
+              required
+            >
+              <option value="" disabled>
+                선택해주세요
+              </option>
+              <option value="true">예</option>
+              <option value="false">아니오</option>
+            </select>
+          </Field>
         </div>
+
+        <details className="mt-2" open>
+          <summary className="text-xs font-medium text-slate-600 cursor-pointer">
+            세부 항목 (선택 — 입력하면 로드맵 정확도가 올라가요)
+          </summary>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2 mt-2">
+            <Field label="직전년도 연 소득 (만원)" hint="비워두면 위 연 소득과 동일하게 처리">
+              <input
+                type="number"
+                value={previousIncomeManwon}
+                onChange={(e) => setPreviousIncomeManwon(e.target.value)}
+                className="input"
+                min={0}
+                placeholder="입력하지 않음"
+              />
+            </Field>
+            <Field label="중소기업 재직 여부" hint="재직 중인 경우에만 사용">
+              <select
+                value={isSmeEmployee}
+                onChange={(e) =>
+                  setIsSmeEmployee(e.target.value as "" | "true" | "false")
+                }
+                className="input"
+              >
+                <option value="">입력하지 않음</option>
+                <option value="true">예</option>
+                <option value="false">아니오</option>
+              </select>
+            </Field>
+            <Field label="월 실수령액 (만원)">
+              <input
+                type="number"
+                value={monthlyTakeHomeManwon}
+                onChange={(e) => setMonthlyTakeHomeManwon(e.target.value)}
+                className="input"
+                min={0}
+                placeholder="입력하지 않음"
+              />
+            </Field>
+            <Field label="목표 금액 (만원)">
+              <input
+                type="number"
+                value={targetAmountManwon}
+                onChange={(e) => setTargetAmountManwon(e.target.value)}
+                className="input"
+                min={0}
+                placeholder="입력하지 않음"
+              />
+            </Field>
+            <Field label="투자 성향">
+              <select
+                value={riskLevel}
+                onChange={(e) =>
+                  setRiskLevel(
+                    e.target.value as "" | "stable" | "balanced" | "growth",
+                  )
+                }
+                className="input"
+              >
+                <option value="">입력하지 않음</option>
+                <option value="stable">안정형</option>
+                <option value="balanced">균형형</option>
+                <option value="growth">성장형</option>
+              </select>
+            </Field>
+            <Field label="투자상품 최대 배분 (%)">
+              <input
+                type="number"
+                value={investmentCap}
+                onChange={(e) => setInvestmentCap(e.target.value)}
+                className="input"
+                min={0}
+                max={100}
+                placeholder="입력하지 않음"
+              />
+            </Field>
+          </div>
+        </details>
       </div>
 
       {err && (
