@@ -2,9 +2,10 @@
 
 실행: uvicorn app.main:app --reload --port 8030
 
-프론트에는 `/api/chat` 을 그대로 노출. 스키마는 BenefitUp-Agent 의
-`/api/chat` 과 호환 (프론트가 지금 그 쪽으로 붙어 있으므로 base URL 만
-바꿔주면 바로 라우터로 스위치됨).
+프론트에는 `/api/chat` 을 그대로 노출. (예전엔 BenefitUp-Agent 가 같은 이름의
+`/api/chat` 을 직접 서빙해서 프론트가 base URL 만 바꾸면 라우터로 스위치됐지만,
+BenefitUp-Agent 쪽은 `/api/v2/policy` 로 개명됨 — policy_client.py 참고. 라우터의
+`/api/chat` 자체 계약은 그대로 유지.)
 """
 from __future__ import annotations
 

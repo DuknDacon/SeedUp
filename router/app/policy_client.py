@@ -1,4 +1,4 @@
-"""BenefitUp-Agent(/api/chat) HTTP 클라이언트.
+"""BenefitUp-Agent(/api/v2/policy) HTTP 클라이언트.
 
 라우터의 `ask_policy_agent` 툴이 부르는 유일한 파일. BenefitUp-Agent 는
 코드로 import 하지 않고 **HTTP 로만** 붙는다 — 두 프로세스는 서로 완전 독립.
@@ -203,7 +203,7 @@ async def call_policy_agent(
     message: str,
     profile: dict[str, Any] | None,
 ) -> tuple[list[dict[str, Any]], bool]:
-    """BenefitUp-Agent 의 /api/chat 을 호출하고 (blocks, profile_delivered) 를 돌려준다.
+    """BenefitUp-Agent 의 /api/v2/policy 를 호출하고 (blocks, profile_delivered) 를 돌려준다.
 
     "나한테 맞는 거 뭐야?" 같은 개인화 질문인데 프로필 핵심 필드가 비어 있으면
     BenefitUp 을 부르지 않고 `profile_ask` 블록으로 먼저 되돌린다. roadmap_client
@@ -252,7 +252,7 @@ async def call_policy_agent(
             payload["profile"] = adapted
 
     async with httpx.AsyncClient(timeout=BENEFIT_TIMEOUT) as c:
-        r = await c.post(f"{BENEFIT_API}/api/chat", json=payload)
+        r = await c.post(f"{BENEFIT_API}/api/v2/policy", json=payload)
         r.raise_for_status()
         data = r.json()
 
