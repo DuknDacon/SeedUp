@@ -11,7 +11,7 @@ export default function HomePage() {
         <b>자산관리 로드맵</b>을 함께 만들어 드립니다.
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <FeatureCard
           emoji="🎯"
           title="① 정책 금융 매칭"
@@ -25,6 +25,14 @@ export default function HomePage() {
           desc="매달 얼마씩, 어떤 상품에 넣을지 — 시드머니까지의 여정을 도와드립니다."
           cta="로드맵 만들기"
           href="/roadmap"
+        />
+        {/* 라우터 백엔드(SeedUp/router)가 두 하위 에이전트를 툴로 감싸서 한 대화에서 오갈 수 있게 함. */}
+        <FeatureCard
+          emoji="💬"
+          title="③ 통합 AI 상담"
+          desc="정책 매칭과 자산관리 로드맵을 한 대화에서 오가며 물어보세요. AI가 자동으로 담당 에이전트를 골라 답합니다."
+          cta="대화 시작하기"
+          href="/chat"
         />
       </div>
 

@@ -25,8 +25,8 @@ export default function PolicyDetailPage() {
     return (
       <div className="py-8 text-red-600">
         정책 정보를 불러오지 못했어요.{" "}
-        <Link href="/policy" className="underline">
-          목록으로
+        <Link href="/chat" className="underline">
+          챗으로 돌아가기
         </Link>
       </div>
     );
@@ -37,10 +37,10 @@ export default function PolicyDetailPage() {
     <article className="space-y-6 py-4">
       <div>
         <Link
-          href="/policy"
+          href="/chat"
           className="text-sm text-brand-700 hover:underline"
         >
-          ← 매칭 목록으로
+          ← 대화로 돌아가기
         </Link>
       </div>
 

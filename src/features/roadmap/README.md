@@ -72,3 +72,25 @@ export async function generateRoadmap(
   → 두 기능이 같은 프로필로 동작하도록 유지.
 - 기능①에서 **저장한 정책** 을 기능②의 로드맵 재료로 넘길 여지가 있음
   (예: "청년도약계좌를 로드맵에 넣기"). 향후 계약 타입에 반영 예정.
+
+## 화면 통합: 이제 기능①/②는 별도 페이지가 아니라 하나의 챗 화면을 공유합니다
+
+`/chat` (`components/chat/ChatWindow.tsx`) 하나가 두 기능의 유일한 진입점입니다.
+더 이상 "프로필 입력 → 카드 리스트" 같은 원샷 화면은 없고, 모든 응답은
+`ChatBlock[]` (`types/api.ts`) 로 와서 `components/chat/ChatBlockRenderer.tsx` 가
+타입별로 렌더링합니다. 그래서 화제가 정책금융 ↔ 로드맵으로 넘어가도 같은 대화
+안에서 자연스럽게 이어집니다.
+
+**로드맵 담당자가 할 일은 이미 자리 잡아둔 스텁 2개를 채우는 것뿐입니다:**
+
+1. `features/roadmap/RoadmapPlanBlock.tsx` — 지금은 "개발 중" placeholder.
+   실제 로드맵 결과 UI로 교체하세요. (이 폴더의 다른 컴포넌트가 필요하면 여기 추가.)
+2. `types/api.ts` 의 `RoadmapPlanPayload`(현재 `Record<string, unknown>` placeholder) 를
+   실제 `RoadmapPlan` 타입으로 교체하고, `ChatBlock` 의
+   `{ type: "roadmap_plan"; plan: RoadmapPlanPayload }` 도 그 타입을 쓰도록 갱신.
+
+`ChatBlockRenderer` 는 이미 `RoadmapPlanBlock` 을 `roadmap_plan` 블록에 연결해뒀으므로,
+그 외 챗 화면/전송 로직은 건드릴 필요가 없습니다. 반대로 로드맵 쪽 백엔드가
+`ChatResponse{ threadId, blocks }` 계약(`services/chatApi.ts` 참고)만 지켜서
+`roadmap_plan`/`text`/`suggested_replies` 블록을 응답에 섞어 주면, 프론트는
+어느 기능이 답했는지 신경 쓸 필요가 없습니다.

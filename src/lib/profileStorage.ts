@@ -30,6 +30,24 @@ export function clearProfile(): void {
   localStorage.removeItem(PROFILE_KEY);
 }
 
+/**
+ * 부분 갱신. 라우터가 준 `profilePatch` 또는 사용자가 채운 slot-fill 답변을
+ * 기존 프로필에 병합해 저장한다. 저장된 값이 없으면 patch 만 저장.
+ * 반환: 병합된 최종 프로필 (또는 patch 가 비었으면 기존 값).
+ */
+export function mergeProfile(patch: Partial<UserProfile>): UserProfile | null {
+  if (typeof window === "undefined") return null;
+  if (!patch || Object.keys(patch).length === 0) return loadProfile();
+  const current = loadProfile();
+  // 기존 프로필이 있으면 병합, 없으면 patch 만으로 시드.
+  // 정책 프로필 필수 필드(age/regionCode/employmentType/…)는 여전히 정책 온보딩
+  // 에서만 채워지고, 여기 slot-fill 결과는 로드맵 필드 위주. 정책 호출 시점에
+  // 필수 필드 부재는 라우터/BenefitUp-Agent 가 알아서 반려한다.
+  const merged = { ...(current ?? {}), ...patch } as UserProfile;
+  saveProfile(merged);
+  return merged;
+}
+
 export function getOrCreateThreadId(): string {
   if (typeof window === "undefined") return "";
   const existing = localStorage.getItem(THREAD_KEY);
