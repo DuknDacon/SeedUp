@@ -21,7 +21,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/chat": {
+    "/api/v2/policy": {
         parameters: {
             query?: never;
             header?: never;
@@ -31,7 +31,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Chat */
-        post: operations["chat_api_chat_post"];
+        post: operations["chat_api_v2_policy_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -170,10 +170,10 @@ export interface components {
              */
             employmentType: "근로자" | "사업자" | "연금소득자" | "채무조정자" | "무직" | "학생";
             /**
-             * Marriagestatus
+             * Maritalstatus
              * @enum {string}
              */
-            marriageStatus: "single" | "married" | "any";
+            maritalStatus: "single" | "married" | "any";
             /**
              * Housingstatus
              * @enum {string}
@@ -196,6 +196,10 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
         };
     };
     responses: never;
@@ -228,7 +232,7 @@ export interface operations {
             };
         };
     };
-    chat_api_chat_post: {
+    chat_api_v2_policy_post: {
         parameters: {
             query?: never;
             header?: never;
