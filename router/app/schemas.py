@@ -34,7 +34,6 @@ class UserProfileIn(BaseModel):
     creditScore: int | None = None
     regionCode: str | None = None
     employmentType: str | None = None
-    marriageStatus: str | None = None
     housingStatus: str | None = None
     educationLevel: str | None = None
     jobCategory: str | None = None
@@ -54,7 +53,10 @@ class UserProfileIn(BaseModel):
     region: str | None = None
     regionProvinceCode: str | None = None
     regionDistrictCode: str | None = None
-    maritalStatus: str | None = None  # single | married (Roadmap 호환용)
+    # single | married — BenefitUp-Agent / Roadmap-Agent 공통 필드명 (예전엔
+    # marriageStatus/maritalStatus 로 이름이 갈려 있어 정책 매칭 쪽이 항상
+    # "미기입"으로 오판하는 버그가 있었다. 두 하위 에이전트 모두 이 이름으로 통일.
+    maritalStatus: str | None = None
     employed: bool | None = None
     isSmeEmployee: bool | None = None
     monthlyTakeHome: int | None = None

@@ -10,7 +10,7 @@ import type {
   EmploymentType,
   HousingStatus,
   InterestCategory,
-  MarriageStatus,
+  MaritalStatus,
   UserProfile,
 } from "@/types/api";
 import { saveProfile, loadProfile } from "@/lib/profileStorage";
@@ -23,7 +23,7 @@ const EMPLOYMENT_TYPES: EmploymentType[] = [
   "무직",
   "학생",
 ];
-const MARRIAGE: { value: MarriageStatus; label: string }[] = [
+const MARRIAGE: { value: MaritalStatus; label: string }[] = [
   { value: "single", label: "미혼" },
   { value: "married", label: "기혼" },
   { value: "any", label: "선택 안 함" },
@@ -62,8 +62,8 @@ export function ProfileForm() {
   const [employment, setEmployment] = useState<EmploymentType>(
     initial?.employmentType ?? "근로자",
   );
-  const [marriage, setMarriage] = useState<MarriageStatus>(
-    initial?.marriageStatus ?? "single",
+  const [marriage, setMarriage] = useState<MaritalStatus>(
+    initial?.maritalStatus ?? "single",
   );
   const [housing, setHousing] = useState<HousingStatus>(
     initial?.housingStatus ?? "rental",
@@ -89,7 +89,7 @@ export function ProfileForm() {
       creditScore: credit ? Number(credit) : null,
       regionCode,
       employmentType: employment,
-      marriageStatus: marriage,
+      maritalStatus: marriage,
       housingStatus: housing,
       interests,
       freeTextQuery: freeText || null,
@@ -163,7 +163,7 @@ export function ProfileForm() {
         <Field label="혼인 상태">
           <select
             value={marriage}
-            onChange={(e) => setMarriage(e.target.value as MarriageStatus)}
+            onChange={(e) => setMarriage(e.target.value as MaritalStatus)}
             className="input"
           >
             {MARRIAGE.map((m) => (

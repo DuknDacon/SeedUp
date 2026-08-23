@@ -103,7 +103,7 @@ def _is_profile_incomplete(profile: dict[str, Any] | None) -> bool:
 # UserProfile → BenefitUp UserProfileIn 어댑터
 # ============================================================
 # BenefitUp 의 `UserProfileIn` 은 age / regionCode / employmentType /
-# marriageStatus / housingStatus 다섯 개가 **필수** (기본값 없음). 통합 상담을
+# maritalStatus / housingStatus 다섯 개가 **필수** (기본값 없음). 통합 상담을
 # 온보딩 없이 시작해 로드맵 슬롯필링(birthDate·monthlyBudget·targetDate·
 # householdSize)만 채운 사용자는 이 다섯 개가 비어 있어서, profile 을
 # 그대로 forward 하면 BenefitUp 이 422 로 튕긴다.
@@ -148,7 +148,7 @@ def _adapt_for_benefit(profile: dict[str, Any]) -> dict[str, Any] | None:
 
     - `age` 는 `birthDate` 에서 계산 (온보딩 사용자는 이미 age 를 갖고 있으니 그대로).
     - `regionCode` 는 로드맵용 `regionDistrictCode`(5자리 법정동) 를 재사용.
-    - `marriageStatus` 는 로드맵의 `maritalStatus` 를 재사용 (같은 값 도메인).
+    - `maritalStatus` 는 BenefitUp/Roadmap 공통 필드명이라 그대로 정규화만 한다.
     - 파생 불가능한 `employmentType` / `housingStatus` 는 안전한 기본값.
 
     `age` 가 없고 `birthDate` 로도 파생할 수 없으면 (아직 온보딩·슬롯필링을
@@ -171,13 +171,13 @@ def _adapt_for_benefit(profile: dict[str, Any]) -> dict[str, Any] | None:
         # 로드맵은 regionDistrictCode(5자리) 를 채워둠 → BenefitUp regionCode 로 재사용.
         p["regionCode"] = p.get("regionDistrictCode") or "11110"
 
-    if not p.get("marriageStatus"):
-        # 로드맵의 maritalStatus 는 "single"/"married" 외에 profile_ask 폼에서
-        # 사용자가 직접 적은 "미혼"/"기혼" 한글 값도 들어올 수 있어 정규화한다.
-        raw_marital = str(p.get("maritalStatus") or "").strip()
-        p["marriageStatus"] = _MARITAL_MAP.get(raw_marital, raw_marital) or "single"
-        if p["marriageStatus"] not in ("single", "married", "any"):
-            p["marriageStatus"] = "single"
+    # "single"/"married" 외에 profile_ask 폼에서 사용자가 직접 적은 "미혼"/"기혼"
+    # 한글 값도 들어올 수 있어 항상 정규화한다.
+    raw_marital = str(p.get("maritalStatus") or "").strip()
+    normalized_marital = _MARITAL_MAP.get(raw_marital, raw_marital) or "single"
+    if normalized_marital not in ("single", "married", "any"):
+        normalized_marital = "single"
+    p["maritalStatus"] = normalized_marital
 
     # 통합 상담 슬롯필링으로 파생 불가능한 두 필드는 광범위 기본값을 준다.
     # BenefitUp 의 매칭 품질을 낮추긴 하지만, 422 로 turn 전체가 죽는 것보단 낫다.

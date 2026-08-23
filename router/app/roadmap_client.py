@@ -195,7 +195,7 @@ def _build_payload(
 
 def _coerce_marital_status(profile: dict[str, Any]) -> str:
     """BenefitUp 은 'any' 도 허용 → Roadmap 은 single/married 만 → 'any' 는 single 로."""
-    ms = profile.get("maritalStatus") or profile.get("marriageStatus") or "single"
+    ms = profile.get("maritalStatus") or "single"
     return "married" if ms == "married" else "single"
 
 

@@ -51,6 +51,9 @@ export type RoadmapProfileFields = {
   region?: string | null;
   regionProvinceCode?: string | null;
   regionDistrictCode?: string | null;
+  // ⚠️ BenefitUp-Agent 재배포 + `npm run gen:api-types` 재생성 이후엔 이 필드가
+  // generated `UserProfileIn.maritalStatus` 와 중복되므로 제거 대상. 그 전까지는
+  // (아직 예전 marriageStatus 로 생성된) generated 타입을 보강하는 용도로 남겨둔다.
   maritalStatus?: "single" | "married" | null;
   employed?: boolean | null;
   isSmeEmployee?: boolean | null;
@@ -67,7 +70,7 @@ export type UserProfile = components["schemas"]["UserProfileIn"] &
 // enum 성격 필드는 UserProfile 에서 인덱싱해서 뽑는다 — api/schemas.py 의 Literal 이
 // 바뀌면 여기도 재생성 한 번으로 같이 바뀐다 (손으로 다시 나열할 필요 없음).
 export type EmploymentType = UserProfile["employmentType"];
-export type MarriageStatus = UserProfile["marriageStatus"];
+export type MaritalStatus = UserProfile["maritalStatus"];
 export type HousingStatus = UserProfile["housingStatus"];
 /** 사회초년생이 목표로 하는 시드머니 용도 */
 export type InterestCategory = NonNullable<UserProfile["interests"]>[number];

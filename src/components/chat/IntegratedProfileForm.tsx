@@ -24,7 +24,7 @@ import { useState } from "react";
 import type {
   EmploymentType,
   HousingStatus,
-  MarriageStatus,
+  MaritalStatus,
   UserProfile,
 } from "@/types/api";
 
@@ -36,7 +36,7 @@ const EMPLOYMENT_TYPES: EmploymentType[] = [
   "무직",
   "학생",
 ];
-const MARRIAGE: { value: MarriageStatus; label: string }[] = [
+const MARRIAGE: { value: MaritalStatus; label: string }[] = [
   { value: "single", label: "미혼" },
   { value: "married", label: "기혼" },
 ];
@@ -66,7 +66,7 @@ export function isIntegratedProfileComplete(
   const hasBirth = Boolean(p.birthDate) || typeof p.age === "number";
   const hasIncome = p.annualIncomeKrw != null;
   const hasEmployment = Boolean(p.employmentType);
-  const hasMarriage = Boolean(p.marriageStatus);
+  const hasMarriage = Boolean(p.maritalStatus);
   const hasHousing = Boolean(p.housingStatus);
   const hasBudget =
     typeof p.monthlyBudget === "number" && p.monthlyBudget > 0;
@@ -100,17 +100,20 @@ export function IntegratedProfileForm({
   onCancel?: () => void;
 }) {
   // 표시 단위는 "만원"이지만 저장은 원 단위. 폼 상태는 문자열로 다뤄 빈 값과 0 을 구분.
-  const [birthDate, setBirthDate] = useState<string>(initial?.birthDate ?? "");
+  // TODO(임시): 테스트 편의를 위해 2000년생 + 일반적인 값으로 기본값 채움. 실제 배포 전 제거 검토.
+  const [birthDate, setBirthDate] = useState<string>(
+    initial?.birthDate ?? "2000-01-01",
+  );
   const [incomeManwon, setIncomeManwon] = useState<string>(
     initial?.annualIncomeKrw != null
       ? String(Math.round(initial.annualIncomeKrw / 10_000))
-      : "",
+      : "3000",
   );
   const [employment, setEmployment] = useState<EmploymentType>(
     initial?.employmentType ?? "근로자",
   );
-  const [marriage, setMarriage] = useState<MarriageStatus>(
-    (initial?.marriageStatus as MarriageStatus) ?? "single",
+  const [marriage, setMarriage] = useState<MaritalStatus>(
+    (initial?.maritalStatus as MaritalStatus) ?? "single",
   );
   const [housing, setHousing] = useState<HousingStatus>(
     initial?.housingStatus ?? "rental",
@@ -118,14 +121,16 @@ export function IntegratedProfileForm({
   const [regionCode, setRegionCode] = useState<string>(
     initial?.regionCode ?? initial?.regionDistrictCode ?? "11110",
   );
-  const [region, setRegion] = useState<string>(initial?.region ?? "");
+  const [region, setRegion] = useState<string>(
+    initial?.region ?? "서울특별시 종로구",
+  );
   const [monthlyBudgetManwon, setMonthlyBudgetManwon] = useState<string>(
     initial?.monthlyBudget != null
       ? String(Math.round(initial.monthlyBudget / 10_000))
       : "50",
   );
   const [targetDate, setTargetDate] = useState<string>(
-    initial?.targetDate ?? "",
+    initial?.targetDate ?? "2029-12-31",
   );
   const [householdSize, setHouseholdSize] = useState<string>(
     initial?.householdSize != null ? String(initial.householdSize) : "1",
@@ -136,34 +141,35 @@ export function IntegratedProfileForm({
   >(
     typeof initial?.hasEmergencyFund === "boolean"
       ? String(initial.hasEmergencyFund) as "true" | "false"
-      : "",
+      : "false",
   );
   // 로드맵 선택 항목 — 비워두면 각각의 자연스러운 기본값으로 처리됨.
+  // TODO(임시): 테스트 편의를 위해 일반적인 값으로 기본값 채움. 실제 배포 전 제거 검토.
   const [previousIncomeManwon, setPreviousIncomeManwon] = useState<string>(
     initial?.previousAnnualIncome != null
       ? String(Math.round(initial.previousAnnualIncome / 10_000))
-      : "",
+      : "3000",
   );
   const [isSmeEmployee, setIsSmeEmployee] = useState<"" | "true" | "false">(
     typeof initial?.isSmeEmployee === "boolean"
       ? (String(initial.isSmeEmployee) as "true" | "false")
-      : "",
+      : "false",
   );
   const [monthlyTakeHomeManwon, setMonthlyTakeHomeManwon] = useState<string>(
     initial?.monthlyTakeHome != null
       ? String(Math.round(initial.monthlyTakeHome / 10_000))
-      : "",
+      : "220",
   );
   const [targetAmountManwon, setTargetAmountManwon] = useState<string>(
     initial?.targetAmount != null
       ? String(Math.round(initial.targetAmount / 10_000))
-      : "",
+      : "5000",
   );
   const [riskLevel, setRiskLevel] = useState<
     "" | "stable" | "balanced" | "growth"
-  >(initial?.riskLevel ?? "");
+  >(initial?.riskLevel ?? "balanced");
   const [investmentCap, setInvestmentCap] = useState<string>(
-    initial?.investmentCap != null ? String(initial.investmentCap) : "",
+    initial?.investmentCap != null ? String(initial.investmentCap) : "30",
   );
 
   const [err, setErr] = useState<string | null>(null);
@@ -217,7 +223,7 @@ export function IntegratedProfileForm({
       annualIncomeKrw: currentIncomeKrw,
       regionCode: districtCode,
       employmentType: employment,
-      marriageStatus: marriage,
+      maritalStatus: marriage,
       housingStatus: housing,
       interests: initial?.interests ?? [],
       creditScore: initial?.creditScore ?? null,
@@ -323,7 +329,7 @@ export function IntegratedProfileForm({
           <Field label="혼인 상태">
             <select
               value={marriage}
-              onChange={(e) => setMarriage(e.target.value as MarriageStatus)}
+              onChange={(e) => setMarriage(e.target.value as MaritalStatus)}
               className="input"
             >
               {MARRIAGE.map((m) => (
