@@ -225,7 +225,13 @@ export function IntegratedProfileForm({
       employmentType: employment,
       maritalStatus: marriage,
       housingStatus: housing,
-      interests: initial?.interests ?? [],
+      // 통합 폼은 interests 를 UI 로 묻지 않는다. 그래서 예전 세션(/policy 폼)에서
+      // 남긴 값이 `...initial` 스프레드로 살아남으면 사용자가 이번 상담에서
+      // 의도한 적 없는 관심 카테고리가 하위 에이전트 쿼리에 계속 섞이는 문제가
+      // 있었다 (BenefitUp SQL WHERE 절이 프로필의 관심 어휘까지 OR 로 얹음).
+      // 통합 폼 저장은 곧 "이번 상담의 조건을 재선언" 하는 액션이라, interests
+      // 는 매 저장마다 빈 배열로 명시적으로 리셋한다.
+      interests: [],
       creditScore: initial?.creditScore ?? null,
       // 로드맵용 필드 (모두 원 단위 / ISO date / 정수)
       birthDate,
