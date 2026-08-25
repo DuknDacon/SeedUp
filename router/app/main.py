@@ -53,6 +53,11 @@ def health() -> dict[str, str]:
 
 @app.post("/api/chat", response_model=ChatResponseOut)
 def chat(req: ChatRequestIn) -> ChatResponseOut:
+    # 요청 단위 구분선: 한 turn 안에서 agent_node 가 여러 번 찍혀도
+    # 어디서부터가 "새 /api/chat" 인지 눈에 띄게 하려는 용도.
+    print("─" * 72)
+    print(f"[/api/chat] thread={req.threadId[:8]}.. msg_len={len(req.message)}")
+
     router = get_router_app()
     thread_config = {"configurable": {"thread_id": req.threadId}}
 
