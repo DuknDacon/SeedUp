@@ -23,6 +23,7 @@ Roadmap-Agent 자체 코드는 여전히 안 건드림.
 from __future__ import annotations
 
 import os
+import time
 import uuid
 from typing import Any
 
@@ -135,8 +136,16 @@ async def call_roadmap_agent(
         )
     payload = _build_payload(profile, question=question, thread_id=thread_id)
 
+    url = f"{ROADMAP_API}/api/v1/roadmaps"
+    print(
+        f"[R-HTTP →] POST {url} (thread={thread_id[:8]}.. first={'y' if is_first_call else 'n'} msg_len={len(message)})"
+    )
+    t0 = time.monotonic()
     async with httpx.AsyncClient(timeout=ROADMAP_TIMEOUT) as c:
-        r = await c.post(f"{ROADMAP_API}/api/v1/roadmaps", json=payload)
+        r = await c.post(url, json=payload)
+        elapsed = time.monotonic() - t0
+        if r.status_code >= 400:
+            print(f"[R-HTTP ←] {r.status_code} in {elapsed:.2f}s | body={r.text[:200]!r}")
         r.raise_for_status()
         data = r.json()
 
@@ -148,6 +157,7 @@ async def call_roadmap_agent(
     blocks.append({"type": "roadmap_plan", "plan": data})
 
     request_patch = data.get("requestPatch")
+    print(f"[R-HTTP ←] {r.status_code} in {elapsed:.2f}s | blocks={len(blocks)} patch={'y' if request_patch else 'n'}")
     return blocks, request_patch
 
 

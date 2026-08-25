@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import re
+import time
 from datetime import date
 from typing import Any
 
@@ -251,9 +252,19 @@ async def call_policy_agent(
         if adapted is not None:
             payload["profile"] = adapted
 
+    url = f"{BENEFIT_API}/api/v2/policy"
+    print(
+        f"[R-HTTP →] POST {url} (thread={thread_id[:8]}.. profile={'y' if adapted else 'n'} msg_len={len(message)})"
+    )
+    t0 = time.monotonic()
     async with httpx.AsyncClient(timeout=BENEFIT_TIMEOUT) as c:
-        r = await c.post(f"{BENEFIT_API}/api/v2/policy", json=payload)
+        r = await c.post(url, json=payload)
+        elapsed = time.monotonic() - t0
+        if r.status_code >= 400:
+            print(f"[R-HTTP ←] {r.status_code} in {elapsed:.2f}s | body={r.text[:200]!r}")
         r.raise_for_status()
         data = r.json()
 
-    return data.get("blocks") or [], adapted is not None
+    blocks = data.get("blocks") or []
+    print(f"[R-HTTP ←] {r.status_code} in {elapsed:.2f}s | blocks={len(blocks)}")
+    return blocks, adapted is not None
