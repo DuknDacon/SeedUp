@@ -24,7 +24,9 @@ cd ..
 
 # 2) 하위 에이전트 Docker 컨테이너 빌드 & 기동
 cd ~/BenefitUp-Agent
-docker compose -f docker-compose.benefit.yml up -d
+# app/api 두 서비스가 같은 이미지(benefitup-agent:latest)를 공유하므로
+# 병렬 빌드 시 "already exists" 충돌이 남 — --parallel 1 로 순차 빌드
+docker compose -f docker-compose.benefit.yml up -d --build --parallel 1
 
 cd ~/Roadmap-Agent
 docker compose -f docker-compose.roadmap.yml up -d
@@ -65,7 +67,8 @@ compose 로 띄운다.
 
 ```bash
 # ① 하위 에이전트 백엔드 (각자 자기 .env 관리)
-docker compose -f ../BenefitUp-Agent/docker-compose.benefit.yml up -d
+# BenefitUp-Agent 는 app/api 가 같은 이미지를 공유해서 --parallel 1 필요
+docker compose -f ../BenefitUp-Agent/docker-compose.benefit.yml up -d --build --parallel 1
 docker compose -f ../Roadmap-Agent/docker-compose.roadmap.yml up -d
 
 # ② SeedUp 라우터 (:8030) — 두 에이전트 앞단에서 delegate
