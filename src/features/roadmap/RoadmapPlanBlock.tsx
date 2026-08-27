@@ -1,26 +1,101 @@
-/**
- * 기능②(자산관리 & 시드머니 로드맵) 결과를 챗 안에 렌더링하는 블록.
- *
- * TODO(로드맵 담당자):
- *   1. types/api.ts 의 `RoadmapPlanPayload`(현재 placeholder) 를 실제 RoadmapPlan 타입으로 교체
- *      (ChatBlock 의 { type: "roadmap_plan"; plan: RoadmapPlanPayload } 도 같이 갱신)
- *   2. 이 컴포넌트만 실제 UI로 구현하면 됨 — 챗 렌더러(components/chat/ChatBlockRenderer.tsx)는
- *      이미 이 컴포넌트에 연결돼 있어서 다른 곳은 손댈 필요 없음
- *   3. README.md 의 관례대로, 이 폴더 컴포넌트는 features/policy/* 에 의존하지 말 것
- */
-import type { RoadmapPlanPayload } from "@/types/api";
+"use client";
+
+import { Check, CircleAlert, ExternalLink, Sparkles } from "lucide-react";
+import type { RoadmapPlanPayload, Scenario } from "@/types/api";
+
+const won = (value?: number | null) =>
+  value == null ? "-" : `${Math.round(value).toLocaleString("ko-KR")}원`;
 
 export function RoadmapPlanBlock({ plan }: { plan: RoadmapPlanPayload }) {
   return (
-    <div className="mt-2 rounded-lg border border-dashed border-brand-300 bg-brand-50 px-3 py-2 text-xs text-brand-700">
-      🗺️ 자산관리 로드맵 기능은 아직 개발 중이에요. 완성되면 이 자리에 로드맵 결과가
-      표시됩니다.
-      {process.env.NODE_ENV === "development" &&
-        Object.keys(plan).length > 0 && (
-          <pre className="mt-1 text-[10px] text-slate-500 overflow-x-auto">
-            {JSON.stringify(plan, null, 2)}
-          </pre>
-        )}
+    <div className="space-y-4">
+      <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3">
+        <div className="text-xs font-semibold text-blue-800">맞춤 자산관리 로드맵</div>
+        <p className="mt-1 text-sm leading-relaxed text-slate-700">{plan.summary}</p>
+        <p className="mt-2 text-xs leading-relaxed text-slate-500">{plan.notice}</p>
+      </div>
+      <RoadmapScenarioCard scenario={plan.recommended} reason={plan.recommendedReason} primary />
+      <RoadmapScenarioCard scenario={plan.alternative} reason={plan.alternativeReason} />
+    </div>
+  );
+}
+
+function RoadmapScenarioCard({
+  scenario,
+  reason,
+  primary = false,
+}: {
+  scenario: Scenario;
+  reason?: string | null;
+  primary?: boolean;
+}) {
+  const total = scenario.allocations.reduce((sum, item) => sum + item.amount, 0);
+  const evidence = scenario.evidence.find((item) => item.url) ?? scenario.evidence[0];
+
+  return (
+    <article className={`rounded-lg border bg-white p-4 ${primary ? "border-blue-300 border-t-[3px]" : "border-slate-200"}`}>
+      <div className="flex items-center justify-between gap-3">
+        <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700">
+          {primary && <Sparkles size={13} />}
+          {scenario.badge}
+        </span>
+        <span className="text-[11px] text-slate-500">{scenario.productType}</span>
+      </div>
+      <h3 className="mt-3 text-lg font-bold text-slate-900">{scenario.title}</h3>
+
+      <div className="mt-3 grid grid-cols-2 border-l border-t border-slate-200">
+        <Metric label="원금" value={won(scenario.principal)} />
+        <Metric label="예상액" value={won(scenario.expectedAmount)} />
+        <Metric label="목표 달성률" value={scenario.goalRate == null ? "-" : `${scenario.goalRate.toFixed(1)}%`} />
+        <Metric label="부족액" value={won(scenario.shortfall)} />
+      </div>
+
+      <div className="mt-4 rounded-md bg-slate-50 p-3">
+        <div className="mb-2 flex items-center justify-between text-xs font-semibold text-slate-700">
+          <span>월 배분</span>
+          <span>{won(total)}</span>
+        </div>
+        <div className="space-y-2">
+          {scenario.allocations.map((item) => (
+            <div key={item.label} className="grid grid-cols-[10px_1fr_auto] items-center gap-2 text-xs">
+              <i className="h-2 w-2 rounded-sm" style={{ backgroundColor: item.color }} />
+              <span className="text-slate-600">{item.label}</span>
+              <strong className="text-slate-800">{won(item.amount)}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {reason && <p className="mt-3 text-xs leading-relaxed text-slate-600">{reason}</p>}
+      {scenario.highlights.map((text) => (
+        <p key={text} className="mt-2 flex items-start gap-2 text-xs leading-relaxed text-slate-600">
+          <Check size={14} className="mt-0.5 shrink-0 text-blue-600" />{text}
+        </p>
+      ))}
+      {scenario.warnings.map((text) => (
+        <p key={text} className="mt-2 flex items-start gap-2 rounded bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
+          <CircleAlert size={14} className="mt-0.5 shrink-0" />{text}
+        </p>
+      ))}
+      {evidence && (
+        evidence.url ? (
+          <a href={evidence.url} target="_blank" rel="noreferrer" className="mt-3 flex items-center justify-between border-t border-slate-200 pt-3 text-xs text-slate-600 hover:text-blue-700">
+            <span><small className="block text-slate-400">공식 근거</small>{evidence.title} · {evidence.organization}</span>
+            <ExternalLink size={15} />
+          </a>
+        ) : (
+          <div className="mt-3 border-t border-slate-200 pt-3 text-xs text-slate-500">{evidence.title}</div>
+        )
+      )}
+    </article>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border-b border-r border-slate-200 p-3">
+      <span className="block text-[11px] text-slate-500">{label}</span>
+      <strong className="mt-1 block text-sm text-slate-900">{value}</strong>
     </div>
   );
 }

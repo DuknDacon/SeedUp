@@ -2,21 +2,14 @@
  * 통합 상담(/chat) 진입 시점에 한 번에 받는 프로필 폼.
  *
  * 기능①(정책 매칭)과 기능②(자산관리 로드맵) 어느 쪽 질문이 먼저 나올지 모르는
- * 통합 상담이라, 대화 도중에 하위 에이전트가 profile_ask 를 반환하며 흐름을
- * 끊는 일을 없애기 위해 두 에이전트가 요구하는 조건을 시작 전에 몰아서 받는다.
+ * 통합 상담이라, 이 폼은 두 에이전트가 요구하는 필드를 모두 입력받는다. 다만
+ * "폼을 다시 열지 여부"를 결정하는 `isIntegratedProfileComplete`는 기능① 필드만
+ * 필수로 본다 — 기능② 전용 필드(월 저축여력/목표 시점 등)가 비어 있어도 대화는
+ * 바로 시작하고, 부족한 값은 로드맵 첫 호출의 `profile_ask` 응답으로 오른쪽
+ * 결과 패널에서 이어서 채운다 (아래 함수 docstring 참고).
  *
  * 저장은 localStorage(seedup:profile) 로 통일. "조건 재입력"으로 다시 열 때는
  * initial 로 기존 값을 채워 넣는다.
- *
- * ⚠️ 기능② 필드 중 `region`/`hasEmergencyFund`/그 외 세부 항목은 한때 이 폼에
- * 없었다. `router/app/roadmap_client.py`의 `_REQUIRED_SLOTS`가 "우리가
- * 유추 불가능한 필드"만 최소로 골라 슬롯필링 대상으로 잡았고(BenefitUp
- * 필드에서 파생 가능한 것/optional로 분류된 것은 제외), 정작 Roadmap-Agent
- * 자체 스키마(`RoadmapCreateRequest`)와 그 온보딩 UI(`RoadmapExperience.tsx`
- * 의 `REQUIRED_FIELD_LABELS`)가 요구하는 필드 목록은 참고하지 않아 생긴
- * 누락이었다. 라우터가 빈 값을 조용히 기본값(`region: "서울"`,
- * `hasEmergencyFund: false` 등)으로 채워 보내 에러 없이 넘어가다 보니
- * 드러나지 않았다. 지금은 그 필드들도 여기서 받는다.
  */
 "use client";
 
@@ -50,11 +43,14 @@ const HOUSING: { value: HousingStatus; label: string }[] = [
 
 /**
  * 프로필이 통합 상담을 시작하기에 충분한지 검사.
- * 정책(_REQUIRED_SLOTS: birthDate/annualIncome/employment/marital/housing) +
- * 로드맵(Roadmap-Agent `RoadmapCreateRequest` 필수 필드 중, employed/maritalStatus/
- * regionProvinceCode/regionDistrictCode 처럼 다른 필드에서 파생 가능한 것을 뺀
- * birthDate/monthlyBudget/targetDate/householdSize/region/hasEmergencyFund)
- * 두 에이전트의 필수 필드를 합친 세트.
+ * 기능①(정책 매칭)이 항상 바로 필요로 하는 최소 필드
+ * (birthDate/annualIncome/employment/marital/housing/region)만 필수로 본다.
+ *
+ * 기능②(로드맵) 전용 필드(monthlyBudget/targetDate/householdSize/
+ * hasEmergencyFund 등)는 여기서 막지 않는다 — 첫 로드맵 호출에서 부족하면
+ * 백엔드가 `profile_ask` 블록으로 되물어 오른쪽 결과 패널에서 이어서 입력받는다
+ * (`ChatWindow.tsx`의 `onProfileAskSubmit` 참고). 그래야 로드맵 필드가 없는
+ * 기존 저장 프로필도 폼 재입력 없이 바로 대화를 시작할 수 있다.
  *
  * 기존 온보딩만 거친 유저는 birthDate 대신 age 만 있을 수 있어 age 로도 통과시킨다
  * (birthDate 로 파생 불가한 경우엔 라우터 어댑터가 age 를 그대로 이용).
@@ -68,25 +64,30 @@ export function isIntegratedProfileComplete(
   const hasEmployment = Boolean(p.employmentType);
   const hasMarriage = Boolean(p.maritalStatus);
   const hasHousing = Boolean(p.housingStatus);
-  const hasBudget =
-    typeof p.monthlyBudget === "number" && p.monthlyBudget > 0;
-  const hasTarget = Boolean(p.targetDate);
-  const hasHousehold =
-    typeof p.householdSize === "number" && p.householdSize > 0;
   const hasRegionName = Boolean(p.region);
-  const hasEmergencyFundAnswer = typeof p.hasEmergencyFund === "boolean";
+  // 기능 2 전용 필드는 여기서 진입을 막지 않는다. 빠진 값은 초기 로드맵
+  // 요청의 profile_ask 응답으로 받아 오른쪽 결과 패널에서 이어서 입력한다.
   return (
     hasBirth &&
     hasIncome &&
     hasEmployment &&
     hasMarriage &&
     hasHousing &&
-    hasBudget &&
-    hasTarget &&
-    hasHousehold &&
-    hasRegionName &&
-    hasEmergencyFundAnswer
+    hasRegionName
   );
+}
+
+function isRealDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+}
+
+function monthsFromToday(value: string): number {
+  const [year, month] = value.split("-").map(Number);
+  const today = new Date();
+  return (year - today.getFullYear()) * 12 + month - (today.getMonth() + 1);
 }
 
 export function IntegratedProfileForm({
@@ -188,9 +189,18 @@ export function IntegratedProfileForm({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!birthDate) return setErr("생년월일을 입력해주세요.");
+    setErr(null);
+    if (!isRealDate(birthDate)) return setErr("생년월일을 올바른 날짜로 입력해주세요.");
+    const age = deriveAge(birthDate);
+    if (age == null || age < 14 || age > 100)
+      return setErr("생년월일은 만 14세부터 100세 범위로 입력해주세요.");
     if (!region.trim()) return setErr("거주 지역명을 입력해주세요.");
-    if (!targetDate) return setErr("목표 시점을 입력해주세요.");
+    if (!/^\d{5}$/.test(regionCode.trim()))
+      return setErr("거주지 법정동 코드는 숫자 5자리로 입력해주세요.");
+    if (!isRealDate(targetDate)) return setErr("목표 시점을 올바른 날짜로 입력해주세요.");
+    const targetMonths = monthsFromToday(targetDate);
+    if (targetMonths < 6 || targetMonths > 120)
+      return setErr("목표 시점은 현재로부터 6개월에서 10년 사이로 입력해주세요.");
     if (hasEmergencyFund === "")
       return setErr("비상자금 보유 여부를 선택해주세요.");
     const income = Number(incomeManwon.replace(/[,_\s]/g, ""));
@@ -200,19 +210,41 @@ export function IntegratedProfileForm({
     if (!Number.isFinite(budget) || budget <= 0)
       return setErr("월 저축여력을 확인해주세요.");
     const hh = Number(householdSize);
-    if (!Number.isFinite(hh) || hh < 1)
+    if (!Number.isInteger(hh) || hh < 1)
       return setErr("가구원 수를 확인해주세요.");
+
+    const optionalWon = (value: string, label: string): number | undefined => {
+      if (value.trim() === "") return undefined;
+      const parsed = Number(value.replace(/[,_\s]/g, ""));
+      if (!Number.isFinite(parsed) || parsed <= 0) throw new Error(`${label}은 0보다 크게 입력해주세요.`);
+      return Math.round(parsed * 10_000);
+    };
+    let previousIncome: number | undefined;
+    let monthlyTakeHome: number | undefined;
+    let targetAmount: number | undefined;
+    try {
+      previousIncome = previousIncomeManwon.trim() === "" ? undefined : Math.round(Number(previousIncomeManwon) * 10_000);
+      if (previousIncome != null && (!Number.isFinite(previousIncome) || previousIncome < 0))
+        return setErr("직전년도 연 소득은 0 이상으로 입력해주세요.");
+      monthlyTakeHome = optionalWon(monthlyTakeHomeManwon, "월 실수령액");
+      targetAmount = optionalWon(targetAmountManwon, "목표 금액");
+    } catch (cause) {
+      return setErr(cause instanceof Error ? cause.message : "선택 입력값을 확인해주세요.");
+    }
+    const budgetKrw = Math.round(budget * 10_000);
+    if (monthlyTakeHome != null && budgetKrw > monthlyTakeHome)
+      return setErr("월 저축여력은 월 실수령액보다 클 수 없습니다.");
+    const cap = investmentCap.trim() === "" ? null : Number(investmentCap);
+    if (cap != null && (!Number.isInteger(cap) || cap < 0 || cap > 100))
+      return setErr("투자상품 최대 배분은 0에서 100 사이의 정수로 입력해주세요.");
 
     // regionCode(5자리 법정동)에서 province(앞 2자리) 도출.
     const districtCode = (regionCode || "11110").trim();
     const provinceCode = districtCode.slice(0, 2) || "11";
-    const age = deriveAge(birthDate);
     const currentIncomeKrw = Math.round(income * 10_000);
 
     // 선택 항목은 빈 문자열이면 undefined 로 흘려보내 백엔드/에이전트가 각자의
-    // 기본값(예: riskLevel → "balanced")을 적용하게 둔다. 값이 있으면 만원 → 원.
-    const toWonOrUndefined = (manwon: string) =>
-      manwon.trim() === "" ? undefined : Math.round(Number(manwon) * 10_000);
+    // 기본값(예: riskLevel → "balanced")을 적용하게 둔다.
     const toBoolOrUndefined = (v: "" | "true" | "false") =>
       v === "" ? undefined : v === "true";
 
@@ -235,7 +267,7 @@ export function IntegratedProfileForm({
       creditScore: initial?.creditScore ?? null,
       // 로드맵용 필드 (모두 원 단위 / ISO date / 정수)
       birthDate,
-      monthlyBudget: Math.round(budget * 10_000),
+      monthlyBudget: budgetKrw,
       targetDate,
       householdSize: hh,
       region: region.trim(),
@@ -245,12 +277,12 @@ export function IntegratedProfileForm({
       // 현재 연소득은 위 annualIncomeKrw 와 동일 값. 직전년도 소득은 비워두면
       // Roadmap-Agent 쪽에서 현재 소득과 같은 값으로 처리된다(소득 변동 없음 가정).
       currentAnnualIncome: currentIncomeKrw,
-      previousAnnualIncome: toWonOrUndefined(previousIncomeManwon) ?? null,
+      previousAnnualIncome: previousIncome ?? null,
       isSmeEmployee: toBoolOrUndefined(isSmeEmployee) ?? null,
-      monthlyTakeHome: toWonOrUndefined(monthlyTakeHomeManwon) ?? null,
-      targetAmount: toWonOrUndefined(targetAmountManwon) ?? null,
+      monthlyTakeHome: monthlyTakeHome ?? null,
+      targetAmount: targetAmount ?? null,
       riskLevel: riskLevel || null,
-      investmentCap: investmentCap.trim() === "" ? null : Number(investmentCap),
+      investmentCap: cap,
       // 통합 상담에서는 온보딩 자유질문 자동 전송을 재사용하지 않는다.
       freeTextQuery: null,
     };

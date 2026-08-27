@@ -1,96 +1,45 @@
 # features/roadmap — 기능② 자산관리 & 시드머니 로드맵
 
-이 폴더는 **기능②(AI 자산관리 & 시드머니 로드맵)** UI 컴포넌트를 담기 위한 자리다.
-현재는 다른 담당자가 개발 중이라 비어 있음.
+**기능②(AI 자산관리 & 시드머니 로드맵)** 관련 화면 컴포넌트를 담는 폴더. 더 이상 빈 스텁이
+아니라 실제로 로드맵 결과를 렌더링하는 컴포넌트가 들어 있다.
 
 ---
 
-## 담당자에게
-
-### 이 폴더에 넣을 것
-- 로드맵 관련 **화면 조각(컴포넌트)**만.
-  - 예: `RoadmapChart.tsx`, `MonthlyPlanCard.tsx`, `GoalForm.tsx`
-- 이 폴더 안의 컴포넌트는 **다른 features/ 폴더에 의존하지 말 것**.
-  공통 부품이 필요하면 `src/lib/` 또는 새로 `src/features/roadmap/shared/` 를 만들어 사용.
-
-### 이 폴더에 넣지 않을 것
-- **페이지 라우팅** — `src/app/roadmap/page.tsx` 에 얇은 wrapper 만 두고,
-  실제 UI 는 여기 컴포넌트를 import 해서 렌더링.
-- **API 클라이언트** — `src/services/roadmapApi.ts` 로 분리.
-- **계약 타입** — `src/types/api.ts` 에 추가 (프론트-백엔드 계약이므로 한 곳에 모음).
-- **공통 유틸/훅** — `src/lib/` 로.
-
----
-
-## 폴더 구조 관례 (기능①의 `features/policy/` 참고)
+## 현재 구성
 
 ```
 features/roadmap/
-├── RoadmapChart.tsx           # 컴포넌트
-├── GoalForm.tsx
-├── MonthlyPlanCard.tsx
-└── (선택) subFeature/         # 하위 기능이 커지면 서브폴더
-    └── ...
+├── RoadmapPlanBlock.tsx          # 로드맵 결과 카드(추천/대안, 배분, 근거, 경고 등) 렌더러
+└── components/
+    └── RoadmapExperience.tsx     # 단독 /roadmap 페이지 전체 흐름(조건 입력 폼 + 챗)
 ```
 
-계약 타입은 `src/types/api.ts` 에 아래처럼 추가하는 걸 권장:
+- **`RoadmapPlanBlock.tsx`** — `RoadmapResponse`(`types/api.ts`) 하나를 받아 추천/대안
+  시나리오 카드, 배분 차트, 근거·경고 목록을 그린다. 단독 `/roadmap` 페이지와 통합
+  `/chat` 화면(`components/chat/ChatWindow.tsx`) 오른쪽 결과 패널 양쪽에서 공유해서 쓴다
+  — `components/chat/ChatBlockRenderer.tsx` 가 `roadmap_plan` 블록을 이 컴포넌트로 연결.
+- **`RoadmapExperience.tsx`** — `/app/roadmap/page.tsx` 전용, 조건 입력 폼부터 챗까지
+  포함한 단독 화면. 통합 챗과는 별개 경로이며, 프로필 폼(`IntegratedProfileForm.tsx`)과
+  중복되는 입력 검증 규칙(생년월일 14~100세, 목표기간 6~120개월 등)은 Roadmap 백엔드
+  (`Roadmap-Agent/src/roadmap_agent/domain.py`) 기준에 맞춰져 있다.
 
-```ts
-// src/types/api.ts
+## 계약 타입
 
-export type RoadmapGoal = {
-  targetKrw: number;
-  targetDate: string;    // ISO date
-  purpose: '주거' | '결혼' | '창업' | ...;
-};
+`RoadmapRequest`/`RoadmapResponse`(`src/types/api.ts` §기능 2)는 아직 손으로 유지한다.
+`package.json` 의 `gen:roadmap-api-types` 스크립트(`ROADMAP_OPENAPI_URL` 기준
+`openapi-typescript` 실행 → `types/generated/roadmap.gen.ts`)는 `gen:api-types`(기능①,
+`backend.gen.ts`)와 동일한 방식으로 자동 생성 전환하기 위해 추가해 둔 것이다. 실제
+전환(수동 타입 제거 + `roadmap.gen.ts` 재수출)은 아직 하지 않았다 — Roadmap-Agent 백엔드가
+로컬에서 떠 있을 때 한 번 실행해서 생성 결과를 확인한 뒤 진행할 것.
 
-export type RoadmapPlan = {
-  monthlyContributionKrw: number;
-  milestones: RoadmapMilestone[];
-  recommendedProducts: RecommendedProduct[];
-};
-// ... 등
-```
+## 통합 챗(`/chat`)에서의 동작
 
-그리고 API 클라이언트:
+`components/chat/ChatWindow.tsx` 가 두 기능의 유일한 진입점이다. 개인정보 입력 폼
+제출 직후 자동으로 "입력한 조건으로 자산관리 로드맵을 만들어줘" 메시지를 보내
+기능②를 호출하고, 응답의 `roadmap_plan` 블록을 오른쪽 패널에 이 폴더의
+`RoadmapPlanBlock`으로 렌더링한다. 기능② 필수 입력이 부족하면 `profile_ask` 블록이
+와서 같은 오른쪽 패널에 추가 입력 폼으로 뜬다.
 
-```ts
-// src/services/roadmapApi.ts
-export async function generateRoadmap(
-  profile: UserProfile,
-  goal: RoadmapGoal,
-): Promise<RoadmapPlan> {
-  // mock ↔ live 스위치는 policyApi.ts 를 참고
-}
-```
-
----
-
-## 기능① 과의 연계
-
-- **기능①의 프로필** (`src/types/api.ts` 의 `UserProfile`) 을 그대로 재사용할 것.
-  → 두 기능이 같은 프로필로 동작하도록 유지.
-- 기능①에서 **저장한 정책** 을 기능②의 로드맵 재료로 넘길 여지가 있음
-  (예: "청년도약계좌를 로드맵에 넣기"). 향후 계약 타입에 반영 예정.
-
-## 화면 통합: 이제 기능①/②는 별도 페이지가 아니라 하나의 챗 화면을 공유합니다
-
-`/chat` (`components/chat/ChatWindow.tsx`) 하나가 두 기능의 유일한 진입점입니다.
-더 이상 "프로필 입력 → 카드 리스트" 같은 원샷 화면은 없고, 모든 응답은
-`ChatBlock[]` (`types/api.ts`) 로 와서 `components/chat/ChatBlockRenderer.tsx` 가
-타입별로 렌더링합니다. 그래서 화제가 정책금융 ↔ 로드맵으로 넘어가도 같은 대화
-안에서 자연스럽게 이어집니다.
-
-**로드맵 담당자가 할 일은 이미 자리 잡아둔 스텁 2개를 채우는 것뿐입니다:**
-
-1. `features/roadmap/RoadmapPlanBlock.tsx` — 지금은 "개발 중" placeholder.
-   실제 로드맵 결과 UI로 교체하세요. (이 폴더의 다른 컴포넌트가 필요하면 여기 추가.)
-2. `types/api.ts` 의 `RoadmapPlanPayload`(현재 `Record<string, unknown>` placeholder) 를
-   실제 `RoadmapPlan` 타입으로 교체하고, `ChatBlock` 의
-   `{ type: "roadmap_plan"; plan: RoadmapPlanPayload }` 도 그 타입을 쓰도록 갱신.
-
-`ChatBlockRenderer` 는 이미 `RoadmapPlanBlock` 을 `roadmap_plan` 블록에 연결해뒀으므로,
-그 외 챗 화면/전송 로직은 건드릴 필요가 없습니다. 반대로 로드맵 쪽 백엔드가
-`ChatResponse{ threadId, blocks }` 계약(`services/chatApi.ts` 참고)만 지켜서
-`roadmap_plan`/`text`/`suggested_replies` 블록을 응답에 섞어 주면, 프론트는
-어느 기능이 답했는지 신경 쓸 필요가 없습니다.
+라우터(`Roadmap-Agent` backend)의 기능①/② 분기 규칙 자체는 이 폴더 담당 범위가
+아니다 — 정책을 깊게 묻는 질문이 들어왔을 때 기능①로 전환하는 라우팅은 기능① 담당자가
+연결하기로 합의됨.

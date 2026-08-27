@@ -24,6 +24,7 @@
  *   - 금액은 원 단위(number). 만원 단위 원본은 서비스 레이어에서 x10000.
  */
 import type { components } from "./generated/backend.gen";
+import type { components as RoadmapComponents } from "./generated/roadmap.gen";
 
 // ============================================================
 // 유저 프로필 (§5) — backend.gen.ts 의 UserProfileIn 재수출
@@ -51,10 +52,8 @@ export type RoadmapProfileFields = {
   region?: string | null;
   regionProvinceCode?: string | null;
   regionDistrictCode?: string | null;
-  // ⚠️ BenefitUp-Agent 재배포 + `npm run gen:api-types` 재생성 이후엔 이 필드가
-  // generated `UserProfileIn.maritalStatus` 와 중복되므로 제거 대상. 그 전까지는
-  // (아직 예전 marriageStatus 로 생성된) generated 타입을 보강하는 용도로 남겨둔다.
-  maritalStatus?: "single" | "married" | null;
+  // maritalStatus 는 generated `UserProfileIn.maritalStatus` 를 그대로 쓴다 — 여기서
+  // 다시 선언하면 교집합 타입이 좁아져 그쪽의 "any" 값이 깨진다.
   employed?: boolean | null;
   isSmeEmployee?: boolean | null;
   monthlyTakeHome?: number | null;
@@ -168,8 +167,8 @@ export type ChatSource = components["schemas"]["ChatSourceOut"];
 type GeneratedChatBlock =
   components["schemas"]["ChatResponseOut"]["blocks"][number];
 
-/** 기능②(로드맵) 담당자가 실제 타입으로 교체할 자리. 지금은 자리만 잡아둔 placeholder. */
-export type RoadmapPlanPayload = Record<string, unknown>;
+/** 통합 채팅의 roadmap_plan은 단독 로드맵 API 응답을 그대로 전달한다. */
+export type RoadmapPlanPayload = RoadmapResponse;
 
 // ── 아래는 프론트/기획 상으로는 이미 정해뒀지만, 백엔드에 아직 그 엔드포인트/매핑이
 // 없어서 자동 생성 대상이 아닌 블록들. 언젠가 백엔드가 채워주기 시작하면(예: SQL
@@ -245,64 +244,32 @@ export type ApiError = {
 // ============================================================
 // 기능 2: 자산관리 로드맵
 // ============================================================
+//
+// Roadmap-Agent 백엔드(`backend/app/schemas.py`)의 OpenAPI 스펙을
+// `openapi-typescript`로 생성한 `types/generated/roadmap.gen.ts`를 그대로
+// 재수출한다. 백엔드가 필드를 바꾸면:
+//   1) Roadmap-Agent 백엔드를 로컬에서 띄운 상태로
+//      ROADMAP_OPENAPI_URL=<주소> npm run gen:roadmap-api-types
+//      (기본: localhost:8001/openapi.json)
+//   2) generated/roadmap.gen.ts 가 갱신되고, 여기서 재수출하는 타입도 자동으로 바뀜
+//   3) 실제 사용하는 컴포넌트가 그 변경과 안 맞으면 `tsc`가 그 자리에서 에러를 낸다.
 
-export type RiskLevel = "stable" | "balanced" | "growth";
+/** `RoadmapCreateRequest`의 `riskLevel` 값 목록. */
+export type RiskLevel = NonNullable<
+  RoadmapComponents["schemas"]["RoadmapCreateRequest"]["riskLevel"]
+>;
 
-export interface RoadmapRequest {
-  birthDate: string;
-  previousAnnualIncome: number;
-  currentAnnualIncome: number;
-  region: string;
-  regionProvinceCode: string;
-  regionDistrictCode: string;
-  householdSize: number;
-  maritalStatus: "single" | "married";
-  employed: boolean;
-  employmentType: string | null;
-  isSmeEmployee: boolean | null;
-  monthlyTakeHome: number | null;
-  monthlyBudget: number;
-  targetDate: string;
-  targetAmount: number | null;
-  hasEmergencyFund: boolean;
-  riskLevel: RiskLevel | null;
-  investmentCap: number | null;
-}
+/**
+ * `roadmapApi.ts`의 `createRoadmap(request, question, threadId)`가 `question`/
+ * `threadId`를 별도 인자로 받아 요청 바디에 합치므로, 이 타입에서는 그 두 필드를
+ * 뺀다(생성 타입의 `RoadmapCreateRequest`가 원본).
+ */
+export type RoadmapRequest = Omit<
+  RoadmapComponents["schemas"]["RoadmapCreateRequest"],
+  "question" | "threadId"
+>;
 
-export interface AllocationItem {
-  label: string;
-  amount: number;
-  color: string;
-}
-
-export interface Scenario {
-  id: string;
-  badge: string;
-  title: string;
-  productType: string;
-  monthlyAmount: number;
-  expectedAmount: number;
-  principal: number;
-  goalRate?: number;
-  shortfall?: number;
-  allocations: AllocationItem[];
-  highlights: string[];
-  warnings: string[];
-  evidence: { title: string; organization: string; url: string }[];
-  monthlyLimit: number | null;
-}
-
-export interface RoadmapResponse {
-  recommended: Scenario;
-  alternative: Scenario;
-  summary: string;
-  explanation: string | null;
-  recommendedReason: string | null;
-  alternativeReason: string | null;
-  chatReply: string | null;
-  notice: string;
-  generatedAt: string;
-  conversationStatus: "needs_input" | "completed" | "failed" | null;
-  conversationIntent: "condition_change" | "result_explanation" | "product_alternatives" | "product_ranking" | "policy_eligibility" | "financial_qa" | "input_completion" | "unclear" | null;
-  requestPatch: Pick<RoadmapRequest, "monthlyBudget" | "targetDate" | "targetAmount" | "hasEmergencyFund" | "investmentCap"> | null;
-}
+export type AllocationItem = RoadmapComponents["schemas"]["AllocationItem"];
+export type EvidenceItem = RoadmapComponents["schemas"]["EvidenceItem"];
+export type Scenario = RoadmapComponents["schemas"]["ScenarioResponse"];
+export type RoadmapResponse = RoadmapComponents["schemas"]["RoadmapResponse"];

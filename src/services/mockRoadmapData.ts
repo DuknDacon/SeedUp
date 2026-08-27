@@ -56,8 +56,8 @@ function buildScenario(params: {
     monthlyAmount,
     expectedAmount,
     principal,
-    goalRate: targetAmount ? Math.round((expectedAmount / targetAmount) * 1000) / 10 : undefined,
-    shortfall: targetAmount ? Math.max(0, targetAmount - expectedAmount) : undefined,
+    goalRate: targetAmount ? Math.round((expectedAmount / targetAmount) * 1000) / 10 : null,
+    shortfall: targetAmount ? Math.max(0, targetAmount - expectedAmount) : null,
     allocations: buildAllocations(monthlyAmount, params.allocationRatios),
     highlights: params.highlights,
     warnings: params.warnings,
@@ -92,7 +92,7 @@ export function buildMockRoadmapResponse(
     allocationRatios: isGrowth
       ? [["savings", 0.5], ["diversified_investment", 0.4], ["unallocated_cash", 0.1]]
       : [["savings", 0.8], ["cash_equivalent", 0.15], ["unallocated_cash", 0.05]],
-    targetAmount: request.targetAmount,
+    targetAmount: request.targetAmount ?? null,
     highlights: [
       "정부 매칭지원금이 포함된 정책 저축상품을 우선 배치했어요.",
       "목표 시점까지 매달 동일한 금액을 투입하는 것으로 계산했어요.",
@@ -112,7 +112,7 @@ export function buildMockRoadmapResponse(
     allocationRatios: isStable
       ? [["savings", 1]]
       : [["savings", 0.6], ["diversified_investment", 0.3], ["unallocated_cash", 0.1]],
-    targetAmount: request.targetAmount,
+    targetAmount: request.targetAmount ?? null,
     highlights: ["원금 손실 위험을 낮추고 싶을 때 고려할 수 있는 대안이에요."],
     warnings: ["시장 상황에 따라 분산투자 구간의 실제 수익률은 달라질 수 있어요."],
     monthlyLimit: null,

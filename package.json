@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "gen:api-types": "openapi-typescript ${BACKEND_OPENAPI_URL:-http://localhost:8010/openapi.json} -o src/types/generated/backend.gen.ts"
+    "gen:api-types": "openapi-typescript ${BACKEND_OPENAPI_URL:-http://localhost:8010/openapi.json} -o src/types/generated/backend.gen.ts",
+    "gen:roadmap-api-types": "openapi-typescript ${ROADMAP_OPENAPI_URL:-http://localhost:8001/openapi.json} -o src/types/generated/roadmap.gen.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.59.0",

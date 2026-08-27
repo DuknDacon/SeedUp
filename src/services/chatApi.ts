@@ -5,8 +5,9 @@
  * 응답은 reply 문자열 하나가 아니라 ChatBlock[] — 텍스트/구조화 결과/제안 질문이
  * 한 메시지 안에 섞여서 올 수 있다 (types/api.ts §챗 참고).
  */
-import type { ChatBlock, ChatRequest, ChatResponse } from "@/types/api";
+import type { ChatBlock, ChatRequest, ChatResponse, UserProfile } from "@/types/api";
 import { MOCK_POLICIES } from "./mockData";
+import { buildMockRoadmapResponse } from "./mockRoadmapData";
 
 const API_MODE = process.env.NEXT_PUBLIC_API_MODE ?? "mock";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8010";
@@ -26,12 +27,12 @@ export async function sendChat(req: ChatRequest): Promise<ChatResponse> {
   await sleep(900);
   return {
     threadId: req.threadId,
-    blocks: mockBlocksFor(req.message, !!req.profile),
+    blocks: mockBlocksFor(req.message, req.profile),
   };
 }
 
-function mockBlocksFor(message: string, hasProfile: boolean): ChatBlock[] {
-  const intro: ChatBlock[] = hasProfile
+function mockBlocksFor(message: string, profile?: UserProfile | null): ChatBlock[] {
+  const intro: ChatBlock[] = profile
     ? [{ type: "text", content: "프로필을 참고해서 답변드릴게요." }]
     : [];
 
@@ -118,12 +119,41 @@ function mockBlocksFor(message: string, hasProfile: boolean): ChatBlock[] {
     ];
   }
 
-  // 로드맵(기능②)으로 화제 전환 — 아직 담당자 개발 중이라 placeholder 블록만
+  // 로드맵(기능②): live 응답과 같은 RoadmapResponse 계약으로 렌더링한다.
   if (message.includes("로드맵") || message.includes("자산관리") || message.includes("시드머니")) {
+    if (!profile?.birthDate || !profile.monthlyBudget || !profile.targetDate || !profile.householdSize) {
+      const fields = [
+        !profile?.birthDate && { key: "birthDate", label: "생년월일", question: "생년월일을 알려주세요.", inputType: "date" as const },
+        !profile?.monthlyBudget && { key: "monthlyBudget", label: "월 저축여력", question: "월 저축 가능 금액을 원 단위로 알려주세요.", inputType: "number" as const },
+        !profile?.targetDate && { key: "targetDate", label: "목표 시점", question: "목표 시점을 알려주세요.", inputType: "date" as const },
+        !profile?.householdSize && { key: "householdSize", label: "가구원 수", question: "본인을 포함한 가구원 수를 알려주세요.", inputType: "number" as const },
+      ].filter(Boolean) as import("@/types/api").ProfileAskField[];
+      return [{ type: "profile_ask", context: "roadmap", fields }];
+    }
+    const plan = buildMockRoadmapResponse({
+      birthDate: profile.birthDate,
+      previousAnnualIncome: profile.previousAnnualIncome ?? profile.annualIncomeKrw ?? 0,
+      currentAnnualIncome: profile.currentAnnualIncome ?? profile.annualIncomeKrw ?? 0,
+      region: profile.region ?? "서울",
+      regionProvinceCode: profile.regionProvinceCode ?? profile.regionCode?.slice(0, 2) ?? "11",
+      regionDistrictCode: profile.regionDistrictCode ?? profile.regionCode ?? "11110",
+      householdSize: profile.householdSize,
+      maritalStatus: profile.maritalStatus === "married" ? "married" : "single",
+      employed: profile.employed ?? !["무직", "학생"].includes(profile.employmentType ?? ""),
+      employmentType: profile.employmentType ?? null,
+      isSmeEmployee: profile.isSmeEmployee ?? null,
+      monthlyTakeHome: profile.monthlyTakeHome ?? null,
+      monthlyBudget: profile.monthlyBudget,
+      targetDate: profile.targetDate,
+      targetAmount: profile.targetAmount ?? null,
+      hasEmergencyFund: profile.hasEmergencyFund ?? false,
+      riskLevel: profile.riskLevel ?? null,
+      investmentCap: profile.investmentCap ?? null,
+    });
     return [
       ...intro,
-      { type: "text", content: "자산관리 로드맵 쪽으로 넘어가 볼게요." },
-      { type: "roadmap_plan", plan: {} },
+      { type: "text", content: "입력한 조건으로 자산관리 로드맵을 만들었어요." },
+      { type: "roadmap_plan", plan },
     ];
   }
 

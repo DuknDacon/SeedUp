@@ -52,7 +52,7 @@ uvicorn app.main:app --reload --port 8030
 하위 에이전트는 각 레포의 docker-compose 로 띄운다:
 
 ```bash
-docker compose -f ../BenefitUp-Agent/docker-compose.benefit.yml up -d
+docker compose --parallel 1 -f docker-compose.benefit.yml up -d --build
 docker compose -f ../Roadmap-Agent/docker-compose.roadmap.yml up -d
 ```
 

@@ -36,10 +36,12 @@ export default function HomePage() {
         />
       </div>
 
-      <div className="mt-8 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-900">
-        <b>🚧 개발 중 안내:</b> 현재는 mock 응답으로 동작합니다. BenefitUp-Agent
-        의 실제 API가 붙으면 자동으로 실시간 매칭으로 전환됩니다.
-      </div>
+      {process.env.NEXT_PUBLIC_API_MODE !== "live" && (
+        <div className="mt-8 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-900">
+          <b>🚧 개발 중 안내:</b> 현재는 mock 응답으로 동작합니다. 백엔드 API가
+          붙으면 자동으로 실시간 매칭으로 전환됩니다.
+        </div>
+      )}
     </div>
   );
 }

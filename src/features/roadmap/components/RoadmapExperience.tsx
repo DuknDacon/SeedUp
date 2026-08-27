@@ -155,12 +155,18 @@ function requestToDraft(request: RoadmapRequest): IntakeDraft {
   const total = targetDateToMonths(request.targetDate);
   return {
     ...request,
+    employmentType: request.employmentType ?? null,
+    isSmeEmployee: request.isSmeEmployee ?? null,
+    monthlyTakeHome: request.monthlyTakeHome ?? null,
+    targetAmount: request.targetAmount ?? null,
+    riskLevel: request.riskLevel ?? null,
+    investmentCap: request.investmentCap ?? null,
     targetYears: Math.floor(total / 12),
     targetMonths: total % 12,
   };
 }
 
-const won = (value?: number) => value == null ? "-" : `${Math.round(value).toLocaleString("ko-KR")}원`;
+const won = (value?: number | null) => value == null ? "-" : `${Math.round(value).toLocaleString("ko-KR")}원`;
 
 export function RoadmapExperience() {
   const [draft, setDraft] = useState(initialDraft);
@@ -243,7 +249,7 @@ export function RoadmapExperience() {
 function Intake({ draft, setDraft, submit, loading, error }: { draft: IntakeDraft; setDraft: (value: IntakeDraft) => void; submit: (e: FormEvent) => void; loading: boolean; error: string | null }) {
   const update = <K extends keyof IntakeDraft>(key: K, value: IntakeDraft[K]) => setDraft({ ...draft, [key]: value });
   return <main className="intake-page">
-    <section className="intro"><div className="step-label"><Sparkles size={15} /> 맞춤 로드맵 시작하기</div><h1>당신에게 맞는<br /><span>금융 경로</span>를 찾아볼게요</h1><p>기본 조건을 알려주시면 정책 혜택부터 적금, 투자까지<br />검증 가능한 데이터로 한 번에 비교해 드려요.</p><div className="trust-row"><span><ShieldCheck size={17} /> 입력 정보는 저장하지 않아요</span><span><Target size={17} /> 약 2분 소요</span></div></section>
+    <section className="intro"><div className="step-label"><Sparkles size={15} /> 맞춤 로드맵 시작하기</div><h1>당신에게 맞는<br /><span>금융 경로</span>를 찾아볼게요</h1><p>기본 조건을 알려주시면 정책 혜택부터 적금, 투자까지<br />검증 가능한 데이터로 한 번에 비교해 드려요.</p><div className="trust-row"><span><ShieldCheck size={17} /> 대화 정보는 세션 유지를 위해 최대 30분간 임시 보관돼요</span><span><Target size={17} /> 약 2분 소요</span></div></section>
     <form className="intake-panel" onSubmit={submit}>
       <div className="panel-head"><div><span>STEP 1 OF 3</span><h2>기본 정보를 알려주세요</h2></div><strong>33%</strong></div><div className="progress"><i /></div>
       <div className="form-grid">
@@ -277,7 +283,7 @@ function Intake({ draft, setDraft, submit, loading, error }: { draft: IntakeDraf
       <label className="confirm"><span className="fake-check"><Check size={14} /></span><span>필수지출과 생활비를 제외하고 매달 꾸준히 모을 수 있는 금액이에요.</span></label>
       {error && <div className="form-error"><CircleAlert size={16} />{error}</div>}
       <button className="primary-action" disabled={loading}>{loading ? <><span className="spinner" /> 로드맵을 계산하고 있어요</> : <>로드맵 만들기 <ArrowRight size={18} /></>}</button>
-      <p className="form-note">입력값은 추천 계산에만 사용되며 서버에 영구 저장되지 않습니다.</p>
+      <p className="form-note">입력값은 추천 계산과 대화 유지에 사용되며, 대화 세션은 30분간 활동이 없으면 삭제됩니다.</p>
     </form>
   </main>;
 }
@@ -361,7 +367,7 @@ function Results({ result, loading, messages, message, setMessage, sendMessage, 
   </main>;
 }
 
-function ScenarioCard({ scenario, aiReason, primary }: { scenario: Scenario; aiReason: string | null; primary?: boolean }) {
+function ScenarioCard({ scenario, aiReason, primary }: { scenario: Scenario; aiReason?: string | null; primary?: boolean }) {
   const total = scenario.allocations.reduce((sum, item) => sum + item.amount, 0);
   const gradient = useMemo(() => { let cursor = 0; return `conic-gradient(${scenario.allocations.map((item) => { const start = cursor; cursor += item.amount / total * 100; return `${item.color} ${start}% ${cursor}%`; }).join(",")})`; }, [scenario.allocations, total]);
   return <article className={`scenario-card ${primary ? "primary" : ""}`}><div className="card-top"><span className="recommend-badge">{primary && <Sparkles size={13} />}{scenario.badge}</span><span className="product-type">{scenario.productType}</span></div><h2>{scenario.title}</h2><p className="data-status"><ShieldCheck size={15} /> 확인된 상품·정책 데이터를 사용했어요</p><div className="metrics"><div><span>원금</span><strong>{won(scenario.principal)}</strong></div><div><span>추천 비교 예상액</span><strong>{won(scenario.expectedAmount)}</strong></div><div><span>목표 달성률</span><strong>{scenario.goalRate == null ? "-" : `${scenario.goalRate.toFixed(1)}%`}</strong></div><div><span>부족액</span><strong>{won(scenario.shortfall)}</strong></div></div><div className="allocation"><div className="donut" style={{ background: gradient }}><span>{won(total).replace("원","")}<small>월 배분</small></span></div><div className="legend">{scenario.allocations.map((item) => <div key={item.label}><i style={{background:item.color}} /><span>{item.label}</span><strong>{won(item.amount)}</strong><small>{Math.round(item.amount/total*100)}%</small></div>)}</div></div><div className="reason"><h3><TrendingUp size={17} /> 안내사항</h3>{scenario.highlights.map((text)=><p key={text}><Check size={14} />{text}</p>)}</div>{aiReason && <div className="ai-card-reason"><h3><Bot size={17} /> AI 추천 이유</h3><p>{aiReason}</p></div>}<div className="warning"><CircleAlert size={17} /><span>{scenario.warnings[0]}</span></div><a className="evidence" href={scenario.evidence[0].url || undefined} target="_blank" rel="noreferrer"><span><small>공식 근거</small>{scenario.evidence[0].title} · {scenario.evidence[0].organization}</span><ExternalLink size={16} /></a></article>;

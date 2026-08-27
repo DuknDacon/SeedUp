@@ -42,6 +42,7 @@ const RESULT_BLOCK_TYPES: ReadonlySet<ChatBlock["type"]> = new Set([
   "loan_detail",
   "sql_table",
   "roadmap_plan",
+  "profile_ask",
 ]);
 
 const isResultBlock = (b: ChatBlock) => RESULT_BLOCK_TYPES.has(b.type);
@@ -59,6 +60,7 @@ export function ChatWindow() {
   const [showForm, setShowForm] = useState<boolean | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoSentRef = useRef(false);
+  const initialRoadmapRequestedRef = useRef(false);
 
   useEffect(() => {
     setThreadId(getOrCreateThreadId());
@@ -73,7 +75,7 @@ export function ChatWindow() {
   // 통합 폼(위)이 열려 있는 동안엔 자동 전송을 미룬다.
   useEffect(() => {
     if (autoSentRef.current) return;
-    if (showForm !== false) return;
+    if (showForm !== false || messages.length === 0) return;
     if (!threadId || !profile?.freeTextQuery) return;
     autoSentRef.current = true;
     const question = profile.freeTextQuery;
@@ -82,7 +84,7 @@ export function ChatWindow() {
     setProfile(updated);
     sendMessage(question);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [threadId, profile, showForm]);
+  }, [threadId, messages.length, profile, showForm]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -118,6 +120,15 @@ export function ChatWindow() {
     },
   });
 
+  useEffect(() => {
+    if (showForm !== false || !threadId || !profile) return;
+    if (initialRoadmapRequestedRef.current || messages.length > 0) return;
+    initialRoadmapRequestedRef.current = true;
+    requestInitialRoadmap(profile);
+    // requestInitialRoadmap는 현재 thread/profile을 사용해 최초 1회만 호출한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showForm, threadId, profile, messages.length]);
+
   /** 폼 제출과 suggested_replies chip 클릭이 공유하는 전송 로직.
    *
    * 프로필은 **매 turn** 실어 보낸다. Roadmap-Agent 는 매 요청마다 프로필
@@ -143,6 +154,15 @@ export function ChatWindow() {
     });
   }
 
+  function requestInitialRoadmap(nextProfile: UserProfile) {
+    if (chat.isPending) return;
+    chat.mutate({
+      threadId,
+      message: "입력한 조건으로 자산관리 로드맵을 만들어줘.",
+      profile: nextProfile,
+    });
+  }
+
   /** profile_ask 미니 폼 제출 콜백. 필드값을 프로필에 병합 저장하고 자동으로
    * 다음 turn 을 발송한다 — 사용자는 채팅에 문장을 다시 안 써도 됨. */
   function onProfileAskSubmit(
@@ -152,7 +172,7 @@ export function ChatWindow() {
     const merged = mergeProfile(patch);
     if (merged) setProfile(merged);
     const answerText =
-      "제공된 정보: " +
+      "추가 정보를 반영해서 자산관리 로드맵을 다시 만들어줘. 제공된 정보: " +
       fields
         .map((f) => `${f.label}=${(patch as Record<string, unknown>)[f.key] ?? "-"}`)
         .join(", ");
@@ -169,6 +189,7 @@ export function ChatWindow() {
     resetThreadId();
     setThreadId(getOrCreateThreadId());
     setMessages([]);
+    initialRoadmapRequestedRef.current = false;
   }
 
   /** 통합 프로필 폼 제출 콜백 — 저장 후 대화 시작(또는 이어서). */
@@ -176,6 +197,8 @@ export function ChatWindow() {
     saveProfile(next);
     setProfile(next);
     setShowForm(false);
+    initialRoadmapRequestedRef.current = true;
+    requestInitialRoadmap(next);
   }
 
   // 가장 최근 assistant 턴에서 나온 "큰 블록"들만 오른쪽 패널로 승격.
@@ -239,7 +262,7 @@ export function ChatWindow() {
           <div className="flex-1 min-w-0">
             <h2 className="m-0">
               <span className="inline-flex items-center px-2.5 py-1 rounded-md border border-sky-300 bg-sky-50 text-sky-700 text-[13px] font-semibold">
-                Policy Agent와 대화하기
+                Roadmap Agent와 대화하기
               </span>
             </h2>
             <p className="text-[11px] text-slate-500 m-0 mt-1.5">
@@ -280,8 +303,7 @@ export function ChatWindow() {
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 && (
             <div className="text-center text-sm text-slate-400 py-10">
-              저장된 조건을 참고해서 답변합니다. 정책 금융이든 자산관리
-              로드맵이든 편하게 물어보세요.
+              저장된 조건으로 자산관리 로드맵을 만들고 있어요.
             </div>
           )}
           {messages.map((m, i) => (
@@ -305,7 +327,7 @@ export function ChatWindow() {
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="예: 전세자금 대출 조건이 궁금해요"
+            placeholder="예: 월 저축액을 60만 원으로 바꿔줘"
             className="flex-1 px-3 py-2 border rounded-lg"
             disabled={chat.isPending}
           />
@@ -326,7 +348,7 @@ export function ChatWindow() {
         </div>
         {latestResultBlocks.length === 0 ? (
           <div className="text-center text-sm text-slate-400 py-12">
-            대화를 시작하면 매칭된 정책·대출·로드맵이 이 패널에 표시됩니다.
+            입력한 조건을 확인하면 맞춤 로드맵이 이 패널에 표시됩니다.
           </div>
         ) : (
           <div className="space-y-4">
