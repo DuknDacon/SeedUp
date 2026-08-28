@@ -33,7 +33,7 @@ export function Reveal({
       className={className}
       initial={{ opacity: 0, x: offset.x, y: offset.y }}
       whileInView={{ opacity: 1, x: 0, y: 0 }}
-      viewport={{ once: true, margin: "-80px" }}
+      viewport={{ once: true, margin: "200px 0px 200px 0px" }}
       transition={{ duration: 0.6, delay, ease: "easeOut" }}
     >
       {children}
