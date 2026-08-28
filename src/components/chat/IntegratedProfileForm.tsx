@@ -176,19 +176,15 @@ export function IntegratedProfileForm({
   );
 
   const [err, setErr] = useState<string | null>(null);
-  // 퀴즈처럼 한 단계씩 진행 — 최종 검증은 그대로 handleSubmit(3단계 제출)에서만 수행.
+  // 퀴즈처럼 한 단계씩 진행 — 최종 검증은 그대로 submitProfile(3단계 제출)에서만 수행.
   const [step, setStep] = useState(0);
   const STEP_META = [
     { title: "기본 정보" },
     { title: "기능① 정책 매칭 조건" },
     { title: "기능② 자산관리 로드맵 조건" },
   ] as const;
-  // eslint-disable-next-line no-console
-  console.log("[QuizForm] render, step=", step, "STEP_META.length=", STEP_META.length);
 
   function goNext() {
-    // eslint-disable-next-line no-console
-    console.log("[QuizForm] goNext called, current step=", step);
     setErr(null);
     if (step === 0) {
       if (!isRealDate(birthDate)) return setErr("생년월일을 올바른 날짜로 입력해주세요.");
@@ -196,12 +192,7 @@ export function IntegratedProfileForm({
       if (incomeManwon.trim() === "") return setErr("연 소득을 입력해주세요.");
       if (householdSize.trim() === "") return setErr("가구원 수를 입력해주세요.");
     }
-    setStep((s) => {
-      const next = Math.min(s + 1, STEP_META.length - 1);
-      // eslint-disable-next-line no-console
-      console.log("[QuizForm] setStep updater, prev=", s, "next=", next);
-      return next;
-    });
+    setStep((s) => Math.min(s + 1, STEP_META.length - 1));
   }
 
   function goBack() {
@@ -221,10 +212,12 @@ export function IntegratedProfileForm({
     return Math.max(age, 0);
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    // eslint-disable-next-line no-console
-    console.log("[QuizForm] handleSubmit fired! step=", step, "submitter=", (e.nativeEvent as SubmitEvent)?.submitter);
-    e.preventDefault();
+  // 마지막 단계 버튼의 onClick으로만 호출된다 — <button type="submit">을 쓰지 않는다.
+  // 이전엔 "다음"(type=button)이 클릭 도중 상태 변화로 같은 위치의 "제출"(type=submit)
+  // 버튼으로 DOM이 재사용/변형되면서, 브라우저가 같은 클릭의 네이티브 기본 동작으로
+  // 폼을 제출해버리는 레이스 컨디션이 있었다(2단계에서 "다음"을 눌렀는데 3단계 화면을
+  // 보여주지 않고 바로 제출되던 버그). 모든 버튼을 type="button"으로 통일해 근본 차단.
+  function submitProfile() {
     setErr(null);
     if (!isRealDate(birthDate)) return setErr("생년월일을 올바른 날짜로 입력해주세요.");
     const age = deriveAge(birthDate);
@@ -326,7 +319,7 @@ export function IntegratedProfileForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
       {/* 진행 표시 — 퀴즈처럼 한 단계씩 */}
       <div className="flex items-center gap-2">
         {STEP_META.map((meta, i) => (
@@ -622,7 +615,8 @@ export function IntegratedProfileForm({
           </button>
         ) : (
           <button
-            type="submit"
+            type="button"
+            onClick={submitProfile}
             className="px-5 py-2 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700"
           >
             저장하고 대화 시작 →
