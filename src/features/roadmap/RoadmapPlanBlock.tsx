@@ -50,12 +50,7 @@ function RoadmapScenarioCard({
       </div>
       <h3 className="mt-3 text-lg font-bold text-slate-900">{scenario.title}</h3>
 
-      <div className="mt-3 grid grid-cols-2 border-l border-t border-slate-200">
-        <Metric label="원금" value={won(scenario.principal)} />
-        <Metric label="예상액" value={won(scenario.expectedAmount)} />
-        <Metric label="목표 달성률" value={scenario.goalRate == null ? "-" : `${scenario.goalRate.toFixed(1)}%`} />
-        <Metric label="부족액" value={won(scenario.shortfall)} />
-      </div>
+      <MetricsPanel scenario={scenario} />
 
       <div className="mt-4 rounded-md bg-slate-50 p-3">
         <div className="mb-2 flex items-center justify-between text-xs font-semibold text-slate-700">
@@ -94,7 +89,7 @@ function RoadmapScenarioCard({
           <div className="mt-3 border-t border-slate-200 pt-3 text-xs text-slate-500">{evidence.title}</div>
         )
       )}
-      {primary && <ActionChecklist evidenceUrl={evidence?.url} />}
+      <ActionChecklist evidenceUrl={evidence?.url} />
     </article>
   );
 }
@@ -146,11 +141,65 @@ function ActionChecklist({ evidenceUrl }: { evidenceUrl?: string }) {
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+/** 원금·예상액·목표달성률·부족액을 막대그래프/뱃지로 시각화. */
+function MetricsPanel({ scenario }: { scenario: Scenario }) {
+  const { principal, expectedAmount, goalRate, shortfall } = scenario;
+  const clampedRate = goalRate == null ? 0 : Math.min(Math.max(goalRate, 0), 100);
+  const rateColor =
+    goalRate == null
+      ? "bg-slate-300"
+      : goalRate >= 100
+        ? "bg-sprout-500"
+        : goalRate >= 70
+          ? "bg-amber-400"
+          : "bg-rose-400";
+  const achieved = shortfall == null || shortfall <= 0;
+
+  // 원금 대비 예상액 막대 — 원금 구간 + 늘어난 구간(이자·정부지원 등)을 함께 표시.
+  const growth = Math.max((expectedAmount ?? 0) - (principal ?? 0), 0);
+  const barTotal = Math.max(expectedAmount ?? 0, principal ?? 0, 1);
+  const principalPct = ((principal ?? 0) / barTotal) * 100;
+  const growthPct = (growth / barTotal) * 100;
+
   return (
-    <div className="border-b border-r border-slate-200 p-3">
-      <span className="block text-[11px] text-slate-500">{label}</span>
-      <strong className="mt-1 block text-sm text-slate-900">{value}</strong>
+    <div className="mt-3 space-y-3">
+      <div>
+        <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+          <span>목표 달성률</span>
+          <span className="font-semibold text-slate-700">
+            {goalRate == null ? "-" : `${goalRate.toFixed(1)}%`}
+          </span>
+        </div>
+        <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+          <div
+            className={`h-full rounded-full ${rateColor}`}
+            style={{ width: `${clampedRate}%` }}
+          />
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+          <span>원금 → 예상액</span>
+          <span className="font-semibold text-slate-700">
+            {won(principal)} → {won(expectedAmount)}
+          </span>
+        </div>
+        <div className="h-2 flex rounded-full bg-slate-100 overflow-hidden">
+          <div className="h-full bg-brand-400" style={{ width: `${principalPct}%` }} />
+          <div className="h-full bg-sprout-400" style={{ width: `${growthPct}%` }} />
+        </div>
+      </div>
+
+      <div
+        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+          achieved
+            ? "bg-sprout-50 text-sprout-700"
+            : "bg-rose-50 text-rose-700"
+        }`}
+      >
+        {achieved ? "✓ 목표 달성" : `목표까지 ${won(shortfall)} 부족`}
+      </div>
     </div>
   );
 }

@@ -12,6 +12,7 @@ import { SqlResultTable } from "@/features/policy/chat/SqlResultTable";
 import { RecommendationsBlockView } from "@/features/policy/chat/RecommendationsBlockView";
 import { RoadmapPlanBlock } from "@/features/roadmap/RoadmapPlanBlock";
 import { ProfileAskForm } from "./ProfileAskForm";
+import { FormattedText } from "./FormattedText";
 
 export function ChatBlockRenderer({
   block,
@@ -26,11 +27,7 @@ export function ChatBlockRenderer({
 }) {
   switch (block.type) {
     case "text":
-      return (
-        <div className="whitespace-pre-wrap leading-relaxed text-sm">
-          {block.content}
-        </div>
-      );
+      return <FormattedText text={block.content} />;
 
     case "policy_results":
       return <PolicyResultBlock items={block.items} query={block.query} />;
