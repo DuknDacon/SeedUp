@@ -11,7 +11,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Bot, Settings2, Sparkles } from "lucide-react";
+import { Bot, MessageCircle, Settings2, Sparkles } from "lucide-react";
 import { sendChat } from "@/services/chatApi";
 import {
   clearProfile,
@@ -53,12 +53,17 @@ export function ChatWindow() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
-  // 프로필 폼 표시 상태. 최초 진입시엔 프로필 완성 여부로, 이후엔 상단
-  // "조건 재입력" 버튼 클릭으로 열린다.
-  //   null   → 아직 판정 전 (localStorage 로드 대기)
-  //   true   → 폼 노출 (chat 은 잠금)
-  //   false  → chat 활성
-  const [showForm, setShowForm] = useState<boolean | null>(null);
+  // 화면 진행 상태.
+  //   loading → 아직 판정 전 (localStorage 로드 대기)
+  //   picker  → 저장된(완성된) 프로필이 있어 "이전 조건으로 계속"/"조건 입력" 중 선택
+  //   form    → 프로필 입력 폼 노출 (chat 은 잠금)
+  //   chat    → 채팅 활성
+  const [entryStep, setEntryStep] = useState<"loading" | "picker" | "form" | "chat">(
+    "loading",
+  );
+  // form 화면의 "취소"가 어디로 돌아갈지 — picker 에서 왔으면 picker로, 채팅 중
+  // "조건 재입력"으로 왔으면 chat으로, 캐시 없이 처음 들어온 거면 취소 불가.
+  const [formOrigin, setFormOrigin] = useState<"picker" | "chat" | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoSentRef = useRef(false);
   const initialRoadmapRequestedRef = useRef(false);
@@ -67,8 +72,14 @@ export function ChatWindow() {
     setThreadId(getOrCreateThreadId());
     const p = loadProfile();
     setProfile(p);
-    // 두 하위 에이전트 모두가 요구하는 조건이 다 채워져 있어야 대화 시작.
-    setShowForm(!isIntegratedProfileComplete(p));
+    // 두 하위 에이전트 모두가 요구하는 조건이 다 채워져 있으면 바로 시작할지
+    // 물어보고(picker), 아니면 곧장 폼으로 보낸다.
+    if (isIntegratedProfileComplete(p)) {
+      setEntryStep("picker");
+    } else {
+      setFormOrigin(null);
+      setEntryStep("form");
+    }
   }, []);
 
   // 온보딩의 "자유 질문"은 첫 메시지로 자동 전송되는 게 의도. 한 번 보내면
@@ -76,7 +87,7 @@ export function ChatWindow() {
   // 통합 폼(위)이 열려 있는 동안엔 자동 전송을 미룬다.
   useEffect(() => {
     if (autoSentRef.current) return;
-    if (showForm !== false || messages.length === 0) return;
+    if (entryStep !== "chat" || messages.length === 0) return;
     if (!threadId || !profile?.freeTextQuery) return;
     autoSentRef.current = true;
     const question = profile.freeTextQuery;
@@ -85,7 +96,7 @@ export function ChatWindow() {
     setProfile(updated);
     sendMessage(question);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [threadId, messages.length, profile, showForm]);
+  }, [threadId, messages.length, profile, entryStep]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -122,13 +133,13 @@ export function ChatWindow() {
   });
 
   useEffect(() => {
-    if (showForm !== false || !threadId || !profile) return;
+    if (entryStep !== "chat" || !threadId || !profile) return;
     if (initialRoadmapRequestedRef.current || messages.length > 0) return;
     initialRoadmapRequestedRef.current = true;
     requestInitialRoadmap(profile);
     // requestInitialRoadmap는 현재 thread/profile을 사용해 최초 1회만 호출한다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showForm, threadId, profile, messages.length]);
+  }, [entryStep, threadId, profile, messages.length]);
 
   /** 폼 제출과 suggested_replies chip 클릭이 공유하는 전송 로직.
    *
@@ -192,7 +203,8 @@ export function ChatWindow() {
     setThreadId(getOrCreateThreadId());
     setProfile(null);
     setMessages([]);
-    setShowForm(true);
+    setFormOrigin(null);
+    setEntryStep("form");
     initialRoadmapRequestedRef.current = false;
   }
 
@@ -200,7 +212,7 @@ export function ChatWindow() {
   function onIntegratedProfileSubmit(next: UserProfile) {
     saveProfile(next);
     setProfile(next);
-    setShowForm(false);
+    setEntryStep("chat");
     initialRoadmapRequestedRef.current = true;
     requestInitialRoadmap(next);
   }
@@ -237,16 +249,54 @@ export function ChatWindow() {
     return [] as ChatBlock[];
   })();
 
-  // 최초 진입 판정 전(showForm === null) — 깜빡임 방지 스켈레톤.
-  if (showForm === null) {
+  // 최초 진입 판정 전(entryStep === "loading") — 깜빡임 방지 스켈레톤.
+  if (entryStep === "loading") {
     return <div className="h-[60vh] rounded-xl border bg-white animate-pulse" />;
   }
 
+  // 저장된(완성된) 프로필이 있으면 곧장 시작할지, 조건을 다시 입력할지 선택.
+  if (entryStep === "picker") {
+    return (
+      <div className="max-w-md mx-auto rounded-xl border bg-white p-6 text-center">
+        <span className="w-12 h-12 mx-auto grid place-items-center bg-brand-100 text-brand-700 rounded-full mb-4">
+          <Bot size={22} />
+        </span>
+        <h2 className="text-base font-semibold text-slate-900 mb-1">
+          이전에 입력한 조건이 있어요
+        </h2>
+        <p className="text-xs text-slate-500 mb-6">
+          {profile?.age}세 · {profile?.employmentType} 조건으로 바로 상담을
+          이어가거나, 조건을 다시 입력할 수 있어요.
+        </p>
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => setEntryStep("chat")}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition"
+          >
+            <MessageCircle size={15} />
+            이전 조건으로 상담하기
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFormOrigin("picker");
+              setEntryStep("form");
+            }}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition"
+          >
+            <Settings2 size={15} />
+            조건 입력하기
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // 프로필 미완이면 우선 폼만 크게 노출해 대화 자체를 잠근다.
-  // 완성된 상태에서 "조건 재입력"을 눌러 다시 열 때도 같은 폼을 재사용하되,
-  // 그 경우엔 취소로 원 대화로 돌아갈 수 있게 한다.
-  if (showForm) {
-    const isRe = isIntegratedProfileComplete(profile);
+  // picker 에서 "조건 입력하기"로 왔거나 채팅 중 "조건 재입력"으로 왔을 때도
+  // 같은 폼을 재사용하되, 취소 시 각각 원래 있던 화면(picker/chat)으로 돌아간다.
+  if (entryStep === "form") {
     return (
       <div className="max-w-3xl mx-auto rounded-xl border bg-white p-5">
         <div className="flex items-center mb-3">
@@ -255,7 +305,7 @@ export function ChatWindow() {
           </span>
           <div>
             <h2 className="text-base font-semibold">
-              {isRe ? "조건 재입력" : "통합 상담 시작 전 조건 입력"}
+              {formOrigin ? "조건 입력" : "통합 상담 시작 전 조건 입력"}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
               정책 매칭(기능①)과 자산관리 로드맵(기능②) 모두에 필요한 조건을
@@ -267,7 +317,13 @@ export function ChatWindow() {
         <IntegratedProfileForm
           initial={profile}
           onSubmit={onIntegratedProfileSubmit}
-          onCancel={isRe ? () => setShowForm(false) : undefined}
+          onCancel={
+            formOrigin === "chat"
+              ? () => setEntryStep("chat")
+              : formOrigin === "picker"
+                ? () => setEntryStep("picker")
+                : undefined
+          }
         />
       </div>
     );
@@ -293,7 +349,10 @@ export function ChatWindow() {
           </div>
           <button
             type="button"
-            onClick={() => setShowForm(true)}
+            onClick={() => {
+              setFormOrigin("chat");
+              setEntryStep("form");
+            }}
             title="저장된 조건을 다시 입력합니다"
             className="ml-auto mr-3 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 border border-brand-200 bg-brand-50 hover:bg-brand-100 rounded-md px-2 py-1"
           >

@@ -11,7 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Reveal } from "@/components/landing/Reveal";
-import { SeedIllustration } from "@/components/landing/SeedIllustration";
+import { MoneyTreeIllustration } from "@/components/landing/MoneyTreeIllustration";
 import { FaqAccordion, type FaqItem } from "@/components/landing/FaqAccordion";
 import { FloatingCta } from "@/components/landing/FloatingCta";
 
@@ -100,7 +100,7 @@ export default function HomePage() {
             </div>
           </Reveal>
           <Reveal direction="left" delay={0.15}>
-            <SeedIllustration className="w-full max-w-sm mx-auto" />
+            <MoneyTreeIllustration stage={0} className="w-full max-w-sm mx-auto" />
           </Reveal>
         </div>
         <motion.div
@@ -114,14 +114,19 @@ export default function HomePage() {
 
       {/* 문제 제기 */}
       <section className="max-w-5xl mx-auto px-4 py-20">
-        <Reveal>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 break-keep">
-            이런 고민, 있지 않으셨나요?
-          </h2>
-          <p className="text-slate-500 dark:text-slate-400 mb-10 break-keep">
-            사회초년생이 자산 형성을 시작할 때 가장 많이 부딪히는 문제입니다.
-          </p>
-        </Reveal>
+        <div className="flex items-center justify-between gap-6 mb-10">
+          <Reveal className="flex-1">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 break-keep">
+              이런 고민, 있지 않으셨나요?
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 break-keep">
+              사회초년생이 자산 형성을 시작할 때 가장 많이 부딪히는 문제입니다.
+            </p>
+          </Reveal>
+          <Reveal direction="left" className="hidden sm:block flex-shrink-0">
+            <MoneyTreeIllustration stage={1} className="w-28" />
+          </Reveal>
+        </div>
         <div className="grid md:grid-cols-2 gap-6">
           {PAIN_POINTS.map((p, i) => (
             <Reveal key={p.title} direction={i === 0 ? "left" : "right"} delay={0.1}>
@@ -141,14 +146,19 @@ export default function HomePage() {
       {/* 해결 방식 */}
       <section className="bg-slate-50 dark:bg-slate-900/40 py-20">
         <div className="max-w-5xl mx-auto px-4">
-          <Reveal>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 break-keep">
-              SeedUp이 해결하는 방법
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 mb-10 break-keep">
-              통합 AI 상담 하나로 정책 매칭부터 자산관리 로드맵까지.
-            </p>
-          </Reveal>
+          <div className="flex items-center justify-between gap-6 mb-10">
+            <Reveal className="flex-1">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 break-keep">
+                SeedUp이 해결하는 방법
+              </h2>
+              <p className="text-slate-500 dark:text-slate-400 break-keep">
+                통합 AI 상담 하나로 정책 매칭부터 자산관리 로드맵까지.
+              </p>
+            </Reveal>
+            <Reveal direction="left" className="hidden sm:block flex-shrink-0">
+              <MoneyTreeIllustration stage={2} className="w-32" />
+            </Reveal>
+          </div>
           <div className="grid md:grid-cols-3 gap-6">
             {STEPS.map((s, i) => (
               <Reveal key={s.title} delay={i * 0.12}>
@@ -174,15 +184,20 @@ export default function HomePage() {
 
       {/* 신뢰 요소 */}
       <section className="max-w-5xl mx-auto px-4 py-20">
-        <Reveal>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2 break-keep">
-            <ShieldCheck size={22} className="text-sprout-600 dark:text-sprout-500 flex-shrink-0" />
-            믿을 수 있는 이유
-          </h2>
-          <p className="text-slate-500 dark:text-slate-400 mb-10 break-keep">
-            상품 판매가 아니라, 사회초년생의 자산 형성을 돕는 중립적 조력자를 지향합니다.
-          </p>
-        </Reveal>
+        <div className="flex items-center justify-between gap-6 mb-10">
+          <Reveal className="flex-1">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2 break-keep">
+              <ShieldCheck size={22} className="text-sprout-600 dark:text-sprout-500 flex-shrink-0" />
+              믿을 수 있는 이유
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 break-keep">
+              상품 판매가 아니라, 사회초년생의 자산 형성을 돕는 중립적 조력자를 지향합니다.
+            </p>
+          </Reveal>
+          <Reveal direction="left" className="hidden sm:block flex-shrink-0">
+            <MoneyTreeIllustration stage={3} className="w-36" />
+          </Reveal>
+        </div>
         <div className="grid sm:grid-cols-2 gap-4">
           {TRUST_ITEMS.map((item, i) => (
             <Reveal key={item} delay={i * 0.08}>
@@ -219,6 +234,9 @@ export default function HomePage() {
 
       {/* 최종 CTA */}
       <section className="max-w-3xl mx-auto px-4 py-24 text-center">
+        <Reveal className="flex justify-center">
+          <MoneyTreeIllustration stage={4} className="w-44 mb-2" />
+        </Reveal>
         <Reveal>
           <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-4 break-keep">
             지금 바로, 나만의 시드머니 로드맵을 만들어보세요
