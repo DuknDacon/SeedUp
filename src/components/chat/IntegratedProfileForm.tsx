@@ -14,7 +14,7 @@
 "use client";
 
 import { useState } from "react";
-import { Landmark, TrendingUp, UserRound } from "lucide-react";
+import { Check, Landmark, TrendingUp, UserRound } from "lucide-react";
 import type {
   EmploymentType,
   HousingStatus,
@@ -176,6 +176,29 @@ export function IntegratedProfileForm({
   );
 
   const [err, setErr] = useState<string | null>(null);
+  // 퀴즈처럼 한 단계씩 진행 — 최종 검증은 그대로 handleSubmit(3단계 제출)에서만 수행.
+  const [step, setStep] = useState(0);
+  const STEP_META = [
+    { title: "기본 정보" },
+    { title: "기능① 정책 매칭 조건" },
+    { title: "기능② 자산관리 로드맵 조건" },
+  ] as const;
+
+  function goNext() {
+    setErr(null);
+    if (step === 0) {
+      if (!isRealDate(birthDate)) return setErr("생년월일을 올바른 날짜로 입력해주세요.");
+      if (!region.trim()) return setErr("거주 지역을 검색해서 선택해주세요.");
+      if (incomeManwon.trim() === "") return setErr("연 소득을 입력해주세요.");
+      if (householdSize.trim() === "") return setErr("가구원 수를 입력해주세요.");
+    }
+    setStep((s) => Math.min(s + 1, STEP_META.length - 1));
+  }
+
+  function goBack() {
+    setErr(null);
+    setStep((s) => Math.max(s - 1, 0));
+  }
 
   function deriveAge(bd: string): number | null {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(bd)) return null;
@@ -292,7 +315,35 @@ export function IntegratedProfileForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* 진행 표시 — 퀴즈처럼 한 단계씩 */}
+      <div className="flex items-center gap-2">
+        {STEP_META.map((meta, i) => (
+          <div key={meta.title} className="flex-1 flex items-center gap-2">
+            <div
+              className={`w-7 h-7 flex-shrink-0 rounded-full grid place-items-center text-xs font-bold border-2 ${
+                i < step
+                  ? "bg-brand-600 border-brand-600 text-white"
+                  : i === step
+                    ? "border-brand-600 text-brand-700"
+                    : "border-slate-200 text-slate-400"
+              }`}
+            >
+              {i < step ? <Check size={13} /> : i + 1}
+            </div>
+            {i < STEP_META.length - 1 && (
+              <div
+                className={`flex-1 h-0.5 rounded ${i < step ? "bg-brand-600" : "bg-slate-200"}`}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="text-xs font-semibold text-slate-500">
+        {step + 1} / {STEP_META.length}단계 · {STEP_META[step].title}
+      </div>
+
+      {step === 0 && (
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         <h3 className="flex items-center gap-1.5 font-semibold mb-3 text-sm text-slate-800">
           <span className="w-6 h-6 grid place-items-center rounded-md bg-brand-50 text-brand-600">
@@ -345,7 +396,9 @@ export function IntegratedProfileForm({
           </Field>
         </div>
       </div>
+      )}
 
+      {step === 1 && (
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         <h3 className="flex items-center gap-1.5 font-semibold mb-3 text-sm text-slate-800">
           <span className="w-6 h-6 grid place-items-center rounded-md bg-brand-50 text-brand-600">
@@ -395,7 +448,9 @@ export function IntegratedProfileForm({
           </Field>
         </div>
       </div>
+      )}
 
+      {step === 2 && (
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         <h3 className="flex items-center gap-1.5 font-semibold mb-3 text-sm text-slate-800">
           <span className="w-6 h-6 grid place-items-center rounded-md bg-sprout-50 text-sprout-600">
@@ -519,6 +574,7 @@ export function IntegratedProfileForm({
           </div>
         </details>
       </div>
+      )}
 
       {err && (
         <div className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-md px-3 py-2">
@@ -527,7 +583,7 @@ export function IntegratedProfileForm({
       )}
 
       <div className="flex items-center justify-end gap-2">
-        {onCancel && (
+        {step === 0 && onCancel && (
           <button
             type="button"
             onClick={onCancel}
@@ -536,12 +592,31 @@ export function IntegratedProfileForm({
             취소
           </button>
         )}
-        <button
-          type="submit"
-          className="px-5 py-2 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700"
-        >
-          저장하고 대화 시작 →
-        </button>
+        {step > 0 && (
+          <button
+            type="button"
+            onClick={goBack}
+            className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+          >
+            ← 이전
+          </button>
+        )}
+        {step < STEP_META.length - 1 ? (
+          <button
+            type="button"
+            onClick={goNext}
+            className="px-5 py-2 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700"
+          >
+            다음 →
+          </button>
+        ) : (
+          <button
+            type="submit"
+            className="px-5 py-2 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700"
+          >
+            저장하고 대화 시작 →
+          </button>
+        )}
       </div>
     </form>
   );

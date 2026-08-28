@@ -20,7 +20,8 @@ export function ScenarioComparisonTable({
   alternatives: Scenario[];
 }) {
   const [open, setOpen] = useState(false);
-  const rows = [recommended, ...alternatives];
+  // 서버가 이미 점수 내림차순으로 정렬해서 주므로, 상위 5개만 잘라 보여준다.
+  const rows = [recommended, ...alternatives].slice(0, 5);
   if (rows.length <= 1) return null;
 
   return (
