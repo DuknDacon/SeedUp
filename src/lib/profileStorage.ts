@@ -61,3 +61,20 @@ export function resetThreadId(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(THREAD_KEY);
 }
+
+/** "내 로드맵" 이력에서 특정 상담을 "이어서 상담하기"로 복원할 때 그 threadId를 활성화. */
+export function setActiveThreadId(id: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(THREAD_KEY, id);
+}
+
+/**
+ * 새 상담을 시작할 때 호출 — 기존 threadId를 버리고 새로 발급한다.
+ * "조건 재입력"(대화 중)은 같은 상담을 이어가는 것이라 이걸 쓰지 않고
+ * threadId를 그대로 유지한다. 새 상담이어야 "내 로드맵" 이력이 서로
+ * 다른 항목으로 구분된다.
+ */
+export function startNewConsultationThread(): string {
+  resetThreadId();
+  return getOrCreateThreadId();
+}

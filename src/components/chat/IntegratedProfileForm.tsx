@@ -94,14 +94,18 @@ function monthsFromToday(value: string): number {
 
 export function IntegratedProfileForm({
   initial,
+  initialNickname,
   onSubmit,
   onCancel,
 }: {
   initial: UserProfile | null;
-  onSubmit: (profile: UserProfile) => void;
+  /** "내 로드맵" 이력 목록에서 이 상담을 구분할 별명의 초기값(재입력 시). */
+  initialNickname?: string;
+  onSubmit: (profile: UserProfile, nickname?: string) => void;
   /** 이미 프로필이 완성돼 있어서 이 폼이 "재입력"인 경우에만 노출. 첫 진입엔 undefined. */
   onCancel?: () => void;
 }) {
+  const [nickname, setNickname] = useState<string>(initialNickname ?? "");
   // 표시 단위는 "만원"이지만 저장은 원 단위. 폼 상태는 문자열로 다뤄 빈 값과 0 을 구분.
   // TODO(임시): 테스트 편의를 위해 2000년생 + 일반적인 값으로 기본값 채움. 실제 배포 전 제거 검토.
   const [birthDate, setBirthDate] = useState<string>(
@@ -315,7 +319,7 @@ export function IntegratedProfileForm({
       // 통합 상담에서는 온보딩 자유질문 자동 전송을 재사용하지 않는다.
       freeTextQuery: null,
     };
-    onSubmit(next);
+    onSubmit(next, nickname.trim() || undefined);
   }
 
   return (
@@ -355,6 +359,19 @@ export function IntegratedProfileForm({
           </span>
           기본 정보
         </h3>
+        <Field
+          label="별명 (선택)"
+          hint="'내 로드맵'에서 이 상담을 구분할 이름이에요"
+        >
+          <input
+            type="text"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            placeholder="예: 이직 전 시나리오"
+            maxLength={40}
+            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent mb-3"
+          />
+        </Field>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2">
           <Field label="생년월일">
             <input

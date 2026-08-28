@@ -20,13 +20,13 @@ import {
   mergeProfile,
   resetThreadId,
   saveProfile,
+  startNewConsultationThread,
 } from "@/lib/profileStorage";
 import {
-  clearLastRoadmapSummary,
-  loadLastRoadmapSummary,
-  saveLastRoadmapSummary,
-  type LastRoadmapSummary,
-} from "@/lib/lastRoadmapSummary";
+  loadRoadmapHistory,
+  upsertRoadmapHistoryEntry,
+  type RoadmapHistoryEntry,
+} from "@/lib/roadmapHistory";
 import type { ChatBlock, ProfileAskField, UserProfile } from "@/types/api";
 import { ChatBlockRenderer } from "./ChatBlockRenderer";
 import { ConditionSlider } from "@/components/roadmap/ConditionSlider";
@@ -79,16 +79,21 @@ export function ChatWindow() {
   // form 화면의 "취소"가 어디로 돌아갈지 — picker 에서 왔으면 picker로, 채팅 중
   // "조건 재입력"으로 왔으면 chat으로, 캐시 없이 처음 들어온 거면 취소 불가.
   const [formOrigin, setFormOrigin] = useState<"picker" | "chat" | null>(null);
-  const [lastSummary, setLastSummary] = useState<LastRoadmapSummary | null>(null);
+  const [latestHistoryEntry, setLatestHistoryEntry] = useState<RoadmapHistoryEntry | null>(
+    null,
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoSentRef = useRef(false);
   const initialRoadmapRequestedRef = useRef(false);
+  // onIntegratedProfileSubmit 시점에 받은 별명을, 로드맵 결과가 도착해 이력을
+  // 만들 때(chat.onSuccess) 함께 저장하려고 잠시 들고 있는다.
+  const pendingNicknameRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     setThreadId(getOrCreateThreadId());
     const p = loadProfile();
     setProfile(p);
-    setLastSummary(loadLastRoadmapSummary());
+    setLatestHistoryEntry(loadRoadmapHistory()[0] ?? null);
     // 두 하위 에이전트 모두가 요구하는 조건이 다 채워져 있으면 바로 시작할지
     // 물어보고(picker), 아니면 곧장 폼으로 보낸다.
     if (isIntegratedProfileComplete(p)) {
@@ -132,17 +137,29 @@ export function ChatWindow() {
         const merged = mergeProfile(res.profilePatch);
         if (merged) setProfile(merged);
       }
-      // 다음 방문 picker 화면에서 "지난 상담" 요약으로 보여주기 위해 저장.
+      // "내 로드맵" 이력에 이번 상담을 upsert(같은 threadId면 갱신, 아니면 새 항목).
       const roadmapBlock = res.blocks.find(
         (b): b is Extract<ChatBlock, { type: "roadmap_plan" }> =>
           b.type === "roadmap_plan",
       );
-      if (roadmapBlock) {
-        saveLastRoadmapSummary({
+      if (roadmapBlock && profile) {
+        const entry: RoadmapHistoryEntry = {
+          threadId,
+          nickname: pendingNicknameRef.current,
           title: roadmapBlock.plan.recommended.title,
           goalRate: roadmapBlock.plan.recommended.goalRate ?? null,
           generatedAt: roadmapBlock.plan.generatedAt,
-        });
+          profileSummary: {
+            age: profile.age,
+            region: profile.region,
+            monthlyBudget: profile.monthlyBudget,
+            targetAmount: profile.targetAmount,
+            targetDate: profile.targetDate,
+          },
+          profile,
+        };
+        upsertRoadmapHistoryEntry(entry);
+        setLatestHistoryEntry(entry);
       }
     },
     onError: () => {
@@ -195,10 +212,10 @@ export function ChatWindow() {
     });
   }
 
-  function requestInitialRoadmap(nextProfile: UserProfile) {
+  function requestInitialRoadmap(nextProfile: UserProfile, threadIdOverride?: string) {
     if (chat.isPending) return;
     chat.mutate({
-      threadId,
+      threadId: threadIdOverride ?? threadId,
       message: "입력한 조건으로 자산관리 로드맵을 만들어줘.",
       profile: nextProfile,
     });
@@ -227,15 +244,15 @@ export function ChatWindow() {
   }
 
   function onReset() {
+    // "내 로드맵" 이력은 "새 대화"로 지우지 않는다 — 지난 상담들을 계속 모아두는 게 목적.
     resetThreadId();
     clearProfile();
-    clearLastRoadmapSummary();
     setThreadId(getOrCreateThreadId());
     setProfile(null);
     setMessages([]);
-    setLastSummary(null);
     setFormOrigin(null);
     setEntryStep("form");
+    pendingNicknameRef.current = undefined;
     initialRoadmapRequestedRef.current = false;
   }
 
@@ -256,12 +273,20 @@ export function ChatWindow() {
   }
 
   /** 통합 프로필 폼 제출 콜백 — 저장 후 대화 시작(또는 이어서). */
-  function onIntegratedProfileSubmit(next: UserProfile) {
+  function onIntegratedProfileSubmit(next: UserProfile, nickname?: string) {
     saveProfile(next);
     setProfile(next);
+    pendingNicknameRef.current = nickname;
+    // "조건 재입력"(대화 중)은 같은 상담을 이어가는 것 — threadId 그대로.
+    // picker의 "조건 입력하기" 또는 캐시 없는 첫 진입은 새 상담 시작 — 새 threadId.
+    let activeThreadId = threadId;
+    if (formOrigin !== "chat") {
+      activeThreadId = startNewConsultationThread();
+      setThreadId(activeThreadId);
+    }
     setEntryStep("chat");
     initialRoadmapRequestedRef.current = true;
-    requestInitialRoadmap(next);
+    requestInitialRoadmap(next, activeThreadId);
   }
 
   // 가장 최근 assistant 턴에서 나온 로드맵 결과 블록만 오른쪽 패널로 승격.
@@ -315,15 +340,15 @@ export function ChatWindow() {
           {profile?.age}세 · {profile?.employmentType} 조건으로 바로 상담을
           이어가거나, 조건을 다시 입력할 수 있어요.
         </p>
-        {lastSummary && (
+        {latestHistoryEntry && (
           <div className="mb-5 rounded-lg bg-sprout-50 border border-sprout-100 px-3 py-2.5 text-left">
             <div className="text-[11px] font-semibold text-sprout-700 mb-0.5">
-              지난 상담 결과
+              지난 상담 결과{latestHistoryEntry.nickname ? ` · ${latestHistoryEntry.nickname}` : ""}
             </div>
             <div className="text-xs text-slate-700">
-              <b>{lastSummary.title}</b> 추천
-              {lastSummary.goalRate != null && (
-                <> · 목표 달성률 {lastSummary.goalRate.toFixed(0)}%</>
+              <b>{latestHistoryEntry.title}</b> 추천
+              {latestHistoryEntry.goalRate != null && (
+                <> · 목표 달성률 {latestHistoryEntry.goalRate.toFixed(0)}%</>
               )}
             </div>
           </div>

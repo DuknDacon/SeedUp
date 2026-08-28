@@ -5,9 +5,23 @@ import { Check, CircleAlert, ExternalLink, Sparkles } from "lucide-react";
 import type { RoadmapPlanPayload, Scenario } from "@/types/api";
 import { ScenarioComparisonTable } from "@/components/roadmap/ScenarioComparisonTable";
 import { TextWithGlossary } from "@/components/roadmap/TermTooltip";
+import {
+  MoneyTreeIllustration,
+  type TreeStage,
+} from "@/components/landing/MoneyTreeIllustration";
 
 const won = (value?: number | null) =>
   value == null ? "-" : `${Math.round(value).toLocaleString("ko-KR")}원`;
+
+/** 목표 달성률을 랜딩페이지와 같은 "씨앗→돈나무" 성장 단계로 매핑 — 서비스 시그니처 재사용. */
+function goalRateToTreeStage(goalRate: number | null | undefined): TreeStage {
+  if (goalRate == null) return 0;
+  if (goalRate >= 100) return 4;
+  if (goalRate >= 75) return 3;
+  if (goalRate >= 50) return 2;
+  if (goalRate >= 25) return 1;
+  return 0;
+}
 
 export function RoadmapPlanBlock({ plan }: { plan: RoadmapPlanPayload }) {
   return (
@@ -160,7 +174,12 @@ function MetricsPanel({ scenario }: { scenario: Scenario }) {
   const gapPct = (gap / barTotal) * 100;
 
   return (
-    <div className="mt-3">
+    <div className="mt-3 flex items-start gap-3">
+      <MoneyTreeIllustration
+        stage={goalRateToTreeStage(goalRate)}
+        className="w-12 h-12 flex-shrink-0"
+      />
+      <div className="flex-1 min-w-0">
       <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
         <span>
           원금 <b className="text-slate-700">{won(principal)}</b> → 예상액{" "}
@@ -190,6 +209,7 @@ function MetricsPanel({ scenario }: { scenario: Scenario }) {
             목표까지 {won(shortfall)} 부족
           </span>
         )}
+      </div>
       </div>
     </div>
   );
