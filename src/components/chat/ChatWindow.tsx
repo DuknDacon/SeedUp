@@ -11,7 +11,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Bot, Settings2 } from "lucide-react";
+import { Bot, Settings2, Sparkles } from "lucide-react";
 import { sendChat } from "@/services/chatApi";
 import {
   clearProfile,
@@ -284,12 +284,10 @@ export function ChatWindow() {
             <Bot size={21} />
           </span>
           <div className="flex-1 min-w-0">
-            <h2 className="m-0">
-              <span className="inline-flex items-center px-2.5 py-1 rounded-md border border-sky-300 bg-sky-50 text-sky-700 text-[13px] font-semibold">
-                Roadmap Agent와 대화하기
-              </span>
+            <h2 className="text-sm font-semibold text-slate-900 truncate">
+              SeedUp AI 상담
             </h2>
-            <p className="text-[11px] text-slate-500 m-0 mt-1.5">
+            <p className="text-[11px] text-slate-500 mt-0.5">
               조건을 바꾸려면 우측 상단 <b>조건 재입력</b>을 눌러주세요.
             </p>
           </div>
@@ -372,7 +370,10 @@ export function ChatWindow() {
           AI 추천 · 결과
         </div>
         {latestRoadmapBlocks.length === 0 ? (
-          <div className="text-center text-sm text-slate-400 py-12">
+          <div className="flex flex-col items-center text-center text-sm text-slate-400 py-12">
+            <span className="w-11 h-11 grid place-items-center rounded-full bg-brand-50 text-brand-500 mb-3">
+              <Sparkles size={20} />
+            </span>
             입력한 조건을 확인하면 맞춤 로드맵이 이 패널에 표시됩니다.
           </div>
         ) : (
