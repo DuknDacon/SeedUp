@@ -124,9 +124,7 @@ SeedUp/
 │   │   │       ├── RecommendationsBlockView.tsx
 │   │   │       └── SqlResultTable.tsx
 │   │   └── roadmap/                # 기능② 자산관리 로드맵 UI
-│   │       ├── RoadmapPlanBlock.tsx        # 로드맵 결과 카드 — 단독/통합 화면 공용
-│   │       └── components/
-│   │           └── RoadmapExperience.tsx   # 단독 /roadmap 페이지 전체 흐름(폼+챗)
+│   │       └── RoadmapPlanBlock.tsx        # 로드맵 결과 카드 (통합 /chat 전용)
 │   │
 │   ├── lib/                       # 공통 유틸 (features 간 공유)
 │   │   ├── queryClient.tsx        # TanStack Query provider
@@ -135,8 +133,7 @@ SeedUp/
 │   │
 │   ├── services/                  # API 클라이언트 (mock↔live 스위치)
 │   │   ├── policyApi.ts           # 정책 상세 조회 (BenefitUp-Agent 직결)
-│   │   ├── chatApi.ts             # 통합 /chat — 라우터 POST /api/chat 호출
-│   │   ├── roadmapApi.ts          # 단독 /roadmap — Roadmap-Agent 직결
+│   │   ├── chatApi.ts             # 통합 /chat — 라우터 POST /api/chat 호출 (정책·로드맵 공용)
 │   │   ├── mockData.ts            # 기능① mock 데이터
 │   │   └── mockRoadmapData.ts     # 기능② mock 데이터
 │   │
@@ -159,8 +156,8 @@ SeedUp/
   직접 의존하지 말 것** — 공유가 필요하면 `components/chat/ChatBlockRenderer.tsx`처럼
   중립 레이어가 양쪽을 import한다.
 - **`lib/`** — feature 간 공유되는 유틸/훅/provider.
-- **`services/`** — API 클라이언트. mock↔live 스위치 지점. 기능②는 라우터 경유(`chatApi.ts`)와
-  직결(`roadmapApi.ts`) 두 경로를 모두 가진다 (자세한 흐름은 아래 §아키텍처).
+- **`services/`** — API 클라이언트. mock↔live 스위치 지점. 기능②는 로드맵 단독 화면을
+  없애서 라우터 경유(`chatApi.ts`) 한 경로만 쓴다 (자세한 흐름은 아래 §아키텍처).
 - **`types/api.ts`** — 프론트-백엔드 계약 타입. 백엔드가 이미 채우는 스키마
   (`UserProfileIn`, `ChatRequestIn/Out`, `RoadmapRequest/Response` 등)는
   `types/generated/{backend,roadmap}.gen.ts`에서 재수출하고, 아직 백엔드 엔드포인트가
@@ -179,11 +176,11 @@ SeedUp/
 
 | 폴더 | 기능① 정책 매칭 (김민중) | 기능② 자산관리 로드맵 (수빈) |
 |---|---|---|
-| `src/app/` | `page.tsx`, `onboarding/`, `policy/[id]/` | `roadmap/` |
+| `src/app/` | `page.tsx`, `onboarding/`, `policy/[id]/` | — (단독 `/roadmap` 제거됨) |
 | `src/app/chat/`, `src/components/chat/` | 공유 — 통합 상담 화면, 수정 시 서로 알리기 | 공유 — 통합 상담 화면, 수정 시 서로 알리기 |
 | `src/features/` | `policy/` | `roadmap/` |
 | `src/lib/` | 공유 — 수정 시 서로 알리기 | 공유 — 수정 시 서로 알리기 |
-| `src/services/` | `policyApi.ts`, `chatApi.ts`(공유) | `roadmapApi.ts`, `mockRoadmapData.ts` |
+| `src/services/` | `policyApi.ts`, `chatApi.ts`(공유) | `mockRoadmapData.ts` |
 | `src/types/api.ts` | `UserProfile`, `Policy*`, `ChatRequest/Response` | `Roadmap*` 타입 (`roadmap.gen.ts` 재수출) |
 | `router/` | — (BenefitUp-Agent 클라이언트만) | — (Roadmap-Agent 클라이언트만) |
 
@@ -219,36 +216,40 @@ SeedUp/
 
 ## 아키텍처 / 실행 흐름
 
-프론트에는 서로 독립된 두 진입점이 있다 — 기능②(로드맵)만 단독으로 쓰는
-화면과, 기능①·②를 라우터로 통합한 화면.
+프론트 진입점은 통합 `/chat` 화면 하나다. 예전에는 기능②(로드맵)만 단독으로
+쓰는 `/roadmap` 페이지가 Roadmap-Agent에 직접 붙는 별도 경로가 있었으나,
+Mixed Content(HTTPS 프론트 → HTTP 백엔드 직접 호출 차단) 문제와 중복 UX를
+피하기 위해 2026-08-28 제거했다 — 이제 기능①·②는 항상 라우터를 거친다.
 
 ```
-① 단독 /roadmap 페이지          ② 통합 /chat 페이지
-   (RoadmapExperience.tsx)         (components/chat/ChatWindow.tsx)
-        │                                  │
-        │ 직접 호출                         │ 라우터 경유
-        ▼                                  ▼
-Roadmap-Agent 백엔드 (:8001)      SeedUp/router (:8030)
-                                          │
-                                ┌─────────┴─────────┐
-                                ▼                   ▼
-                     BenefitUp-Agent(:8010)   Roadmap-Agent(:8001)
-                     /api/v2/policy           /api/v1/roadmaps
+                    통합 /chat 페이지
+                (components/chat/ChatWindow.tsx)
+                            │
+                       chatApi.ts
+                            │ 라우터 경유
+                            ▼
+                   SeedUp/router (:8030)
+                            │
+                  ┌─────────┴─────────┐
+                  ▼                   ▼
+       BenefitUp-Agent(:8010)   Roadmap-Agent(:8001)
+       /api/v2/policy           /api/v1/roadmaps
 ```
 
-- **① 단독 `/roadmap`** — `services/roadmapApi.ts`가 라우터를 거치지 않고
-  Roadmap-Agent 백엔드에 바로 붙는다. 계약 타입은 `types/generated/roadmap.gen.ts`
-  (Roadmap-Agent 자신의 OpenAPI에서 생성).
-- **② 통합 `/chat`** — `services/chatApi.ts`가 라우터의 `POST /api/chat`
+- **통합 `/chat`** — `services/chatApi.ts`가 라우터의 `POST /api/chat`
   하나만 호출한다. 라우터가 메시지를 보고 `ask_policy_agent`(기능①,
   BenefitUp-Agent `/api/v2/policy` 호출) 또는 `ask_roadmap_agent`(기능②,
   Roadmap-Agent `/api/v1/roadmaps` 호출) 중 하나를 골라 실행한 뒤, 결과를
   `ChatResponseOut { threadId, blocks[] }` 하나로 합쳐 돌려준다. 계약 타입은
   `types/generated/backend.gen.ts`(BenefitUp-Agent 자신의 OpenAPI에서 생성 —
   라우터는 `blocks`를 재해석 없이 그대로 통과시키므로, 블록 모양의 단일
-  출처는 여전히 BenefitUp-Agent다).
+  출처는 여전히 BenefitUp-Agent다). 로드맵 결과 블록(`plan` 필드)의 타입은
+  `types/generated/roadmap.gen.ts`에서 온다.
 - 프론트는 **계약 타입(`src/types/api.ts`)만 알면 됨**. 백엔드 내부 구현이
   바뀌어도 응답 스키마만 유지되면 손댈 필요 없음.
+- 프론트(Vercel, HTTPS)에서 브라우저가 직접 부르는 건 라우터(:8030)뿐이다.
+  BenefitUp-Agent·Roadmap-Agent는 라우터가 서버 안에서(localhost) 호출하므로
+  CORS/HTTPS 제약을 안 받는다 — 이 둘을 인터넷에 공개할 필요가 없다.
 
 ### mock ↔ live 스위치
 
@@ -256,9 +257,8 @@ Roadmap-Agent 백엔드 (:8001)      SeedUp/router (:8030)
 
 ```
 NEXT_PUBLIC_API_MODE=mock   # 기본, mockData.ts / mockRoadmapData.ts 사용
-NEXT_PUBLIC_API_MODE=live   # 아래 두 URL로 실제 호출
-NEXT_PUBLIC_API_BASE=http://localhost:8030          # 통합 /chat → 라우터
-NEXT_PUBLIC_ROADMAP_API_URL=http://localhost:8001   # 단독 /roadmap → Roadmap-Agent 직결
+NEXT_PUBLIC_API_MODE=live   # 아래 URL로 실제 호출
+NEXT_PUBLIC_API_BASE=http://localhost:8030          # 통합 /chat → 라우터 (정책·로드맵 둘 다 이걸로)
 ```
 
 live 로 스위치할 때 컴포넌트 코드는 **한 줄도 안 바뀜.** `services/*` 안의

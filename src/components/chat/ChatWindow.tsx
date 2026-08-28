@@ -254,7 +254,7 @@ export function ChatWindow() {
     <div className="grid grid-cols-1 md:grid-cols-[minmax(340px,420px)_1fr] gap-5 items-start">
       {/* 왼쪽: 채팅 (기능②의 chat-section 위치와 동일) */}
       <div className="rounded-xl border bg-white flex flex-col h-[75vh] md:sticky md:top-5 overflow-hidden">
-        {/* 기능② RoadmapExperience 의 .chat-heading 과 동일한 구성 (아이콘·타이틀·안내·온라인) */}
+        {/* 채팅 헤딩: 아이콘·타이틀·안내·온라인 표시 */}
         <div className="flex items-center px-5 py-4 border-b border-slate-200">
           <span className="w-10 h-10 grid place-items-center bg-brand-100 text-brand-700 rounded-md mr-3 flex-shrink-0">
             <Bot size={21} />

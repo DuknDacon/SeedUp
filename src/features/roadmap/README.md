@@ -9,19 +9,17 @@
 
 ```
 features/roadmap/
-├── RoadmapPlanBlock.tsx          # 로드맵 결과 카드(추천/대안, 배분, 근거, 경고 등) 렌더러
-└── components/
-    └── RoadmapExperience.tsx     # 단독 /roadmap 페이지 전체 흐름(조건 입력 폼 + 챗)
+└── RoadmapPlanBlock.tsx          # 로드맵 결과 카드(추천/대안, 배분, 근거, 경고 등) 렌더러
 ```
 
 - **`RoadmapPlanBlock.tsx`** — `RoadmapResponse`(`types/api.ts`) 하나를 받아 추천/대안
-  시나리오 카드, 배분 차트, 근거·경고 목록을 그린다. 단독 `/roadmap` 페이지와 통합
-  `/chat` 화면(`components/chat/ChatWindow.tsx`) 오른쪽 결과 패널 양쪽에서 공유해서 쓴다
-  — `components/chat/ChatBlockRenderer.tsx` 가 `roadmap_plan` 블록을 이 컴포넌트로 연결.
-- **`RoadmapExperience.tsx`** — `/app/roadmap/page.tsx` 전용, 조건 입력 폼부터 챗까지
-  포함한 단독 화면. 통합 챗과는 별개 경로이며, 프로필 폼(`IntegratedProfileForm.tsx`)과
-  중복되는 입력 검증 규칙(생년월일 14~100세, 목표기간 6~120개월 등)은 Roadmap 백엔드
-  (`Roadmap-Agent/src/roadmap_agent/domain.py`) 기준에 맞춰져 있다.
+  시나리오 카드, 배분 차트, 근거·경고 목록을 그린다. 통합 `/chat` 화면
+  (`components/chat/ChatWindow.tsx`) 오른쪽 결과 패널에서 쓴다 —
+  `components/chat/ChatBlockRenderer.tsx` 가 `roadmap_plan` 블록을 이 컴포넌트로 연결.
+
+> 예전에는 조건 입력 폼부터 챗까지 포함한 단독 `/roadmap` 페이지(`RoadmapExperience.tsx`)가
+> 따로 있었으나, Mixed Content 문제(HTTPS 프론트 → HTTP 백엔드 직접 호출 차단)와 통합
+> 챗과의 중복 UX 때문에 2026-08-28 제거했다. 이제 로드맵은 통합 `/chat` 하나로만 제공한다.
 
 ## 계약 타입
 

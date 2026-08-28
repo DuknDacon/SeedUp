@@ -260,9 +260,9 @@ export type RiskLevel = NonNullable<
 >;
 
 /**
- * `roadmapApi.ts`의 `createRoadmap(request, question, threadId)`가 `question`/
- * `threadId`를 별도 인자로 받아 요청 바디에 합치므로, 이 타입에서는 그 두 필드를
- * 뺀다(생성 타입의 `RoadmapCreateRequest`가 원본).
+ * `question`/`threadId`는 통합 채팅(`chatApi.ts`)이 대화 맥락에서 별도로 채워
+ * 요청 바디에 합치므로, 이 타입에서는 그 두 필드를 뺀다(생성 타입의
+ * `RoadmapCreateRequest`가 원본).
  */
 export type RoadmapRequest = Omit<
   RoadmapComponents["schemas"]["RoadmapCreateRequest"],
