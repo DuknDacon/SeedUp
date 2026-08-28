@@ -68,16 +68,22 @@ def chat(req: ChatRequestIn) -> ChatResponseOut:
 
     profile = req.profile.model_dump() if req.profile else None
 
+    # MemorySaver 체크포인트는 리듀서가 없는 필드를 이번 turn 의 invoke 입력값으로
+    # 그대로 덮어쓴다. profile_delivered_* 를 매번 False 로 넣으면 하위 노드가 직전
+    # turn 에 True 로 저장해둔 값이 다음 turn 에서 무조건 지워져 "첫 호출" 상태가
+    # 영원히 반복된다 — 직전 체크포인트 값을 먼저 읽어 이어받는다.
+    prior_state = router.get_state(thread_config).values or {}
+
     initial = {
         "messages": [HumanMessage(content=req.message)],
         "policy_thread_id": policy_thread_id,
         "roadmap_thread_id": roadmap_thread_id,
         "profile": profile,
-        # profile_delivered_* 는 첫 호출 후 하위 노드에서 True 로 flip.
-        # LangGraph state 는 매 노드에서 부분 갱신되므로 초기값을 명시적으로 넣어둔다.
-        "profile_delivered_policy": False,
-        "profile_delivered_roadmap": False,
-        "last_roadmap_plan": None,
+        # profile_delivered_* 는 첫 호출 후 하위 노드에서 True 로 flip 되어
+        # 체크포인트에 저장된다. 신규 thread 면 prior_state 가 비어 있어 False.
+        "profile_delivered_policy": prior_state.get("profile_delivered_policy", False),
+        "profile_delivered_roadmap": prior_state.get("profile_delivered_roadmap", False),
+        "last_roadmap_plan": prior_state.get("last_roadmap_plan"),
         "collected_blocks": [],
     }
 
