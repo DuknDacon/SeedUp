@@ -205,14 +205,33 @@ export function ChatWindow() {
     requestInitialRoadmap(next);
   }
 
-  // 가장 최근 assistant 턴에서 나온 "큰 블록"들만 오른쪽 패널로 승격.
+  // 가장 최근 assistant 턴에서 나온 로드맵 결과 블록만 오른쪽 패널로 승격.
   // 마지막 assistant 응답이 결과 블록을 안 담고 있으면 그 이전 응답을 찾아 유지한다
   // (예: 사용자가 "왜?"라고 되물어서 답이 텍스트뿐이어도 이전 카드는 그대로 보이게).
-  const latestResultBlocks = (() => {
+  const latestRoadmapBlocks = (() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       const m = messages[i];
       if (m.role !== "assistant") continue;
-      const results = m.blocks.filter(isResultBlock);
+      const results = m.blocks.filter(
+        (b) => b.type === "roadmap_plan" || b.type === "profile_ask"
+      );
+      if (results.length > 0) return results;
+    }
+    return [] as ChatBlock[];
+  })();
+
+  // 정책(기능①) 결과는 통합 테스트 확인용으로 하단에 별도 표시.
+  // TODO: 통합 테스트 끝나면 이 파생값과 아래 하단 섹션 JSX를 통째로 제거.
+  const latestPolicyBlocks = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.role !== "assistant") continue;
+      const results = m.blocks.filter(
+        (b) =>
+          b.type === "policy_results" ||
+          b.type === "loan_detail" ||
+          b.type === "sql_table"
+      );
       if (results.length > 0) return results;
     }
     return [] as ChatBlock[];
@@ -255,6 +274,7 @@ export function ChatWindow() {
   }
 
   return (
+    <>
     <div className="grid grid-cols-1 md:grid-cols-[minmax(340px,420px)_1fr] gap-5 items-start">
       {/* 왼쪽: 채팅 (기능②의 chat-section 위치와 동일) */}
       <div className="rounded-xl border bg-white flex flex-col h-[75vh] md:sticky md:top-5 overflow-hidden">
@@ -351,13 +371,13 @@ export function ChatWindow() {
         <div className="mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
           AI 추천 · 결과
         </div>
-        {latestResultBlocks.length === 0 ? (
+        {latestRoadmapBlocks.length === 0 ? (
           <div className="text-center text-sm text-slate-400 py-12">
             입력한 조건을 확인하면 맞춤 로드맵이 이 패널에 표시됩니다.
           </div>
         ) : (
           <div className="space-y-4">
-            {latestResultBlocks.map((b, i) => (
+            {latestRoadmapBlocks.map((b, i) => (
               <ChatBlockRenderer
                 key={i}
                 block={b}
@@ -369,6 +389,25 @@ export function ChatWindow() {
         )}
       </div>
     </div>
+
+    {latestPolicyBlocks.length > 0 && (
+      <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50/40 p-4">
+        <div className="mb-3 text-xs font-semibold text-amber-700 uppercase tracking-wide">
+          🧪 테스트용 — 기능① 최신 결과 (통합 테스트 끝나면 이 섹션만 삭제하면 됨)
+        </div>
+        <div className="space-y-4">
+          {latestPolicyBlocks.map((b, i) => (
+            <ChatBlockRenderer
+              key={i}
+              block={b}
+              onSuggestionClick={sendMessage}
+              onProfileAsk={onProfileAskSubmit}
+            />
+          ))}
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 
