@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, MessageCircle, X } from "lucide-react";
+import { BookOpen, Menu, MessageCircle, TrendingUp, X } from "lucide-react";
+
+const NAV_LINKS = [
+  { href: "/glossary", label: "용어사전", Icon: BookOpen },
+  { href: "/my-roadmap", label: "내 로드맵", Icon: TrendingUp },
+];
 
 export function SiteHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -20,6 +25,16 @@ export function SiteHeader() {
 
         {/* 데스크톱 네비 */}
         <nav className="hidden md:flex items-center gap-4">
+          {NAV_LINKS.map(({ href, label, Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-brand-700"
+            >
+              <Icon size={15} />
+              {label}
+            </Link>
+          ))}
           <Link
             href="/chat"
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:text-brand-800"
@@ -41,7 +56,18 @@ export function SiteHeader() {
       </div>
 
       {mobileOpen && (
-        <div className="md:hidden border-t border-slate-200 px-4 py-3">
+        <div className="md:hidden border-t border-slate-200 px-4 py-3 flex flex-col gap-3">
+          {NAV_LINKS.map(({ href, label, Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              onClick={() => setMobileOpen(false)}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600"
+            >
+              <Icon size={15} />
+              {label}
+            </Link>
+          ))}
           <Link
             href="/chat"
             onClick={() => setMobileOpen(false)}
