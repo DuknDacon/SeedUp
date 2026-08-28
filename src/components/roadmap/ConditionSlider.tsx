@@ -51,7 +51,7 @@ export function ConditionSlider({
         value={local}
         disabled={disabled}
         onChange={(e) => handleChange(Number(e.target.value))}
-        className="w-full accent-brand-600 disabled:opacity-50"
+        className="w-full h-2 p-0 border-0 bg-transparent accent-brand-600 disabled:opacity-50"
       />
     </div>
   );

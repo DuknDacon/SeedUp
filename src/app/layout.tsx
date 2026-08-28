@@ -3,7 +3,6 @@ import "./globals.css";
 import { QueryProvider } from "@/lib/queryClient";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ScrollToTopButton } from "@/components/ScrollToTopButton";
-import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 const TITLE = "SeedUp — 사회초년생 시드머니 빌드업 AI 비서";
 const DESCRIPTION =
@@ -31,13 +30,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
-      <head>
-        {/* 하이드레이션 전 다크모드 깜빡임(FOUC) 방지 */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-      </head>
       <body>
         <QueryProvider>
-          <div className="min-h-screen bg-white dark:bg-slate-950">
+          <div className="min-h-screen bg-white">
             <SiteHeader />
             <main>{children}</main>
             <ScrollToTopButton />

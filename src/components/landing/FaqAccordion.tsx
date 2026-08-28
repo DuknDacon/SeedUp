@@ -9,7 +9,7 @@ export function FaqAccordion({ items }: { items: FaqItem[] }) {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <div className="divide-y divide-slate-200 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 overflow-hidden">
+    <div className="divide-y divide-slate-200 border border-slate-200 rounded-xl bg-white overflow-hidden">
       {items.map((item, i) => {
         const open = openIndex === i;
         return (
@@ -19,7 +19,7 @@ export function FaqAccordion({ items }: { items: FaqItem[] }) {
               onClick={() => setOpenIndex(open ? null : i)}
               className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left"
             >
-              <span className="font-semibold text-sm text-slate-800 dark:text-slate-100 break-keep">
+              <span className="font-semibold text-sm text-slate-800 break-keep">
                 {item.q}
               </span>
               <ChevronDown
@@ -35,7 +35,7 @@ export function FaqAccordion({ items }: { items: FaqItem[] }) {
               }`}
             >
               <div className="overflow-hidden">
-                <p className="px-5 pb-4 text-sm text-slate-600 dark:text-slate-400 leading-relaxed break-keep">
+                <p className="px-5 pb-4 text-sm text-slate-600 leading-relaxed break-keep">
                   {item.a}
                 </p>
               </div>

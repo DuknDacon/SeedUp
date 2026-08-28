@@ -19,7 +19,7 @@ export function ScrollToTopButton() {
       type="button"
       onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
       aria-label="맨 위로"
-      className="fixed bottom-20 right-4 sm:bottom-5 sm:right-5 z-30 w-10 h-10 grid place-items-center rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 shadow-md hover:bg-slate-50 dark:hover:bg-slate-700 transition"
+      className="fixed bottom-20 right-4 sm:bottom-5 sm:right-5 z-30 w-10 h-10 grid place-items-center rounded-full bg-white border border-slate-200 text-slate-600 shadow-md hover:bg-slate-50 transition"
     >
       <ArrowUp size={16} />
     </button>

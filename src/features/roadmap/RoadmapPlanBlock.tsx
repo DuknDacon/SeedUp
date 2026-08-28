@@ -122,7 +122,7 @@ function ActionChecklist({ evidenceUrl }: { evidenceUrl?: string }) {
               onChange={() =>
                 setChecked((cur) => cur.map((v, idx) => (idx === i ? !v : v)))
               }
-              className="accent-brand-600"
+              className="w-3.5 h-3.5 flex-shrink-0 accent-brand-600"
             />
             <span className={checked[i] ? "line-through text-slate-400" : ""}>
               {"href" in item ? (
