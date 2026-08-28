@@ -14,12 +14,14 @@
 "use client";
 
 import { useState } from "react";
+import { Landmark, TrendingUp, UserRound } from "lucide-react";
 import type {
   EmploymentType,
   HousingStatus,
   MaritalStatus,
   UserProfile,
 } from "@/types/api";
+import { RegionSearchSelect } from "./RegionSearchSelect";
 
 const EMPLOYMENT_TYPES: EmploymentType[] = [
   "근로자",
@@ -291,35 +293,33 @@ export function IntegratedProfileForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="rounded-xl border bg-white p-3">
-        <h3 className="font-semibold mb-2 text-sm text-slate-800">기본 정보</h3>
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <h3 className="flex items-center gap-1.5 font-semibold mb-3 text-sm text-slate-800">
+          <span className="w-6 h-6 grid place-items-center rounded-md bg-brand-50 text-brand-600">
+            <UserRound size={13} />
+          </span>
+          기본 정보
+        </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2">
           <Field label="생년월일">
             <input
               type="date"
               value={birthDate}
               onChange={(e) => setBirthDate(e.target.value)}
-              className="input"
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
               required
             />
           </Field>
-          <Field label="거주지 (법정동 코드)" hint="예: 11110 (서울 종로구)">
-            <input
-              type="text"
-              value={regionCode}
-              onChange={(e) => setRegionCode(e.target.value)}
-              className="input"
-              placeholder="11110"
-            />
-          </Field>
-          <Field label="거주 지역명" hint="예: 서울특별시 종로구">
-            <input
-              type="text"
+          <Field
+            label="거주 지역"
+            hint="시군구명을 검색해서 선택하세요"
+          >
+            <RegionSearchSelect
               value={region}
-              onChange={(e) => setRegion(e.target.value)}
-              className="input"
-              placeholder="서울특별시 종로구"
-              required
+              onSelect={({ name, code }) => {
+                setRegion(name);
+                setRegionCode(code);
+              }}
             />
           </Field>
           <Field label="연 소득 (만원)" hint="세전 기준">
@@ -327,7 +327,7 @@ export function IntegratedProfileForm({
               type="number"
               value={incomeManwon}
               onChange={(e) => setIncomeManwon(e.target.value)}
-              className="input"
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
               placeholder="예: 3000"
               min={0}
               required
@@ -338,7 +338,7 @@ export function IntegratedProfileForm({
               type="number"
               value={householdSize}
               onChange={(e) => setHouseholdSize(e.target.value)}
-              className="input"
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
               min={1}
               required
             />
@@ -346,8 +346,11 @@ export function IntegratedProfileForm({
         </div>
       </div>
 
-      <div className="rounded-xl border bg-white p-3">
-        <h3 className="font-semibold mb-2 text-sm text-slate-800">
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <h3 className="flex items-center gap-1.5 font-semibold mb-3 text-sm text-slate-800">
+          <span className="w-6 h-6 grid place-items-center rounded-md bg-brand-50 text-brand-600">
+            <Landmark size={13} />
+          </span>
           기능① 정책 매칭 조건
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-3 gap-y-2">
@@ -355,7 +358,7 @@ export function IntegratedProfileForm({
             <select
               value={employment}
               onChange={(e) => setEmployment(e.target.value as EmploymentType)}
-              className="input"
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             >
               {EMPLOYMENT_TYPES.map((t) => (
                 <option key={t} value={t}>
@@ -368,7 +371,7 @@ export function IntegratedProfileForm({
             <select
               value={marriage}
               onChange={(e) => setMarriage(e.target.value as MaritalStatus)}
-              className="input"
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             >
               {MARRIAGE.map((m) => (
                 <option key={m.value} value={m.value}>
@@ -381,7 +384,7 @@ export function IntegratedProfileForm({
             <select
               value={housing}
               onChange={(e) => setHousing(e.target.value as HousingStatus)}
-              className="input"
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             >
               {HOUSING.map((h) => (
                 <option key={h.value} value={h.value}>
@@ -393,8 +396,11 @@ export function IntegratedProfileForm({
         </div>
       </div>
 
-      <div className="rounded-xl border bg-white p-3">
-        <h3 className="font-semibold mb-2 text-sm text-slate-800">
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <h3 className="flex items-center gap-1.5 font-semibold mb-3 text-sm text-slate-800">
+          <span className="w-6 h-6 grid place-items-center rounded-md bg-sprout-50 text-sprout-600">
+            <TrendingUp size={13} />
+          </span>
           기능② 자산관리 로드맵 조건
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2">
@@ -403,7 +409,7 @@ export function IntegratedProfileForm({
               type="number"
               value={monthlyBudgetManwon}
               onChange={(e) => setMonthlyBudgetManwon(e.target.value)}
-              className="input"
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
               min={1}
               required
             />
@@ -413,7 +419,7 @@ export function IntegratedProfileForm({
               type="date"
               value={targetDate}
               onChange={(e) => setTargetDate(e.target.value)}
-              className="input"
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
               required
             />
           </Field>
@@ -423,7 +429,7 @@ export function IntegratedProfileForm({
               onChange={(e) =>
                 setHasEmergencyFund(e.target.value as "" | "true" | "false")
               }
-              className="input"
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
               required
             >
               <option value="" disabled>
@@ -435,17 +441,17 @@ export function IntegratedProfileForm({
           </Field>
         </div>
 
-        <details className="mt-2" open>
-          <summary className="text-xs font-medium text-slate-600 cursor-pointer">
+        <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2" open>
+          <summary className="text-xs font-semibold text-brand-700 cursor-pointer select-none">
             세부 항목 (선택 — 입력하면 로드맵 정확도가 올라가요)
           </summary>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2 mt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2 mt-3">
             <Field label="직전년도 연 소득 (만원)" hint="비워두면 위 연 소득과 동일하게 처리">
               <input
                 type="number"
                 value={previousIncomeManwon}
                 onChange={(e) => setPreviousIncomeManwon(e.target.value)}
-                className="input"
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 min={0}
                 placeholder="입력하지 않음"
               />
@@ -456,7 +462,7 @@ export function IntegratedProfileForm({
                 onChange={(e) =>
                   setIsSmeEmployee(e.target.value as "" | "true" | "false")
                 }
-                className="input"
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
               >
                 <option value="">입력하지 않음</option>
                 <option value="true">예</option>
@@ -468,7 +474,7 @@ export function IntegratedProfileForm({
                 type="number"
                 value={monthlyTakeHomeManwon}
                 onChange={(e) => setMonthlyTakeHomeManwon(e.target.value)}
-                className="input"
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 min={0}
                 placeholder="입력하지 않음"
               />
@@ -478,7 +484,7 @@ export function IntegratedProfileForm({
                 type="number"
                 value={targetAmountManwon}
                 onChange={(e) => setTargetAmountManwon(e.target.value)}
-                className="input"
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 min={0}
                 placeholder="입력하지 않음"
               />
@@ -491,7 +497,7 @@ export function IntegratedProfileForm({
                     e.target.value as "" | "stable" | "balanced" | "growth",
                   )
                 }
-                className="input"
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
               >
                 <option value="">입력하지 않음</option>
                 <option value="stable">안정형</option>
@@ -504,7 +510,7 @@ export function IntegratedProfileForm({
                 type="number"
                 value={investmentCap}
                 onChange={(e) => setInvestmentCap(e.target.value)}
-                className="input"
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 min={0}
                 max={100}
                 placeholder="입력하지 않음"
@@ -537,22 +543,6 @@ export function IntegratedProfileForm({
           저장하고 대화 시작 →
         </button>
       </div>
-
-      <style jsx>{`
-        .input {
-          width: 100%;
-          padding: 0.4rem 0.6rem;
-          font-size: 0.875rem;
-          border: 1px solid #cbd5e1;
-          border-radius: 0.5rem;
-          background: white;
-        }
-        .input:focus {
-          outline: 2px solid #3b82f6;
-          outline-offset: 1px;
-          border-color: transparent;
-        }
-      `}</style>
     </form>
   );
 }

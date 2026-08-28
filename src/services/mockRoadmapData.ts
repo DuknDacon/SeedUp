@@ -121,6 +121,7 @@ export function buildMockRoadmapResponse(
   return {
     recommended,
     alternative,
+    alternatives: [alternative],
     summary: `월 ${monthlyAmount.toLocaleString("ko-KR")}원씩 ${months}개월 동안 모으는 두 가지 경로를 비교했어요. (mock 데이터)`,
     explanation: null,
     recommendedReason:

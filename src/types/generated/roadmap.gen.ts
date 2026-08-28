@@ -140,6 +140,11 @@ export interface components {
         RoadmapResponse: {
             recommended: components["schemas"]["ScenarioResponse"];
             alternative: components["schemas"]["ScenarioResponse"];
+            /**
+             * Alternatives
+             * @default []
+             */
+            alternatives: components["schemas"]["ScenarioResponse"][];
             /** Summary */
             summary: string;
             /** Explanation */

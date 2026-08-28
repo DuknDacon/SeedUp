@@ -21,8 +21,15 @@ import {
   resetThreadId,
   saveProfile,
 } from "@/lib/profileStorage";
+import {
+  clearLastRoadmapSummary,
+  loadLastRoadmapSummary,
+  saveLastRoadmapSummary,
+  type LastRoadmapSummary,
+} from "@/lib/lastRoadmapSummary";
 import type { ChatBlock, ProfileAskField, UserProfile } from "@/types/api";
 import { ChatBlockRenderer } from "./ChatBlockRenderer";
+import { ConditionSlider } from "@/components/roadmap/ConditionSlider";
 import {
   IntegratedProfileForm,
   isIntegratedProfileComplete,
@@ -32,6 +39,14 @@ type Msg = {
   role: "user" | "assistant";
   blocks: ChatBlock[];
 };
+
+/** picker 화면에 상시 노출하는 예시 질문 — 처음 오는 사용자가 뭘 물어봐야 할지 모를 때. */
+const EXAMPLE_QUESTIONS = [
+  "3년 안에 3천만원 모으려면 매달 얼마씩 저축해야 해?",
+  "ISA 계좌 지금 만들어야 할까?",
+  "청년내일저축계좌 자격이 되는지 알려줘",
+  "적금이랑 투자, 비율을 어떻게 나눠야 해?",
+];
 
 /**
  * 오른쪽 결과 패널로 승격되는 "큰 블록" 타입들.
@@ -64,6 +79,7 @@ export function ChatWindow() {
   // form 화면의 "취소"가 어디로 돌아갈지 — picker 에서 왔으면 picker로, 채팅 중
   // "조건 재입력"으로 왔으면 chat으로, 캐시 없이 처음 들어온 거면 취소 불가.
   const [formOrigin, setFormOrigin] = useState<"picker" | "chat" | null>(null);
+  const [lastSummary, setLastSummary] = useState<LastRoadmapSummary | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoSentRef = useRef(false);
   const initialRoadmapRequestedRef = useRef(false);
@@ -72,6 +88,7 @@ export function ChatWindow() {
     setThreadId(getOrCreateThreadId());
     const p = loadProfile();
     setProfile(p);
+    setLastSummary(loadLastRoadmapSummary());
     // 두 하위 에이전트 모두가 요구하는 조건이 다 채워져 있으면 바로 시작할지
     // 물어보고(picker), 아니면 곧장 폼으로 보낸다.
     if (isIntegratedProfileComplete(p)) {
@@ -114,6 +131,18 @@ export function ChatWindow() {
       if (res.profilePatch && Object.keys(res.profilePatch).length > 0) {
         const merged = mergeProfile(res.profilePatch);
         if (merged) setProfile(merged);
+      }
+      // 다음 방문 picker 화면에서 "지난 상담" 요약으로 보여주기 위해 저장.
+      const roadmapBlock = res.blocks.find(
+        (b): b is Extract<ChatBlock, { type: "roadmap_plan" }> =>
+          b.type === "roadmap_plan",
+      );
+      if (roadmapBlock) {
+        saveLastRoadmapSummary({
+          title: roadmapBlock.plan.recommended.title,
+          goalRate: roadmapBlock.plan.recommended.goalRate ?? null,
+          generatedAt: roadmapBlock.plan.generatedAt,
+        });
       }
     },
     onError: () => {
@@ -200,12 +229,30 @@ export function ChatWindow() {
   function onReset() {
     resetThreadId();
     clearProfile();
+    clearLastRoadmapSummary();
     setThreadId(getOrCreateThreadId());
     setProfile(null);
     setMessages([]);
+    setLastSummary(null);
     setFormOrigin(null);
     setEntryStep("form");
     initialRoadmapRequestedRef.current = false;
+  }
+
+  /** 결과 패널의 월 저축액 슬라이더 — 채팅으로 다시 안 쳐도 즉석 재시뮬레이션. */
+  function onBudgetSliderCommit(newBudget: number) {
+    if (!profile) return;
+    const updated = { ...profile, monthlyBudget: newBudget };
+    saveProfile(updated);
+    setProfile(updated);
+    sendMessage(`월 저축액을 ${newBudget.toLocaleString("ko-KR")}원으로 바꿔줘`, updated);
+  }
+
+  /** picker 화면의 예시 질문 칩 클릭 — 일반 로드맵 생성 대신 그 질문을 바로 첫 메시지로 전송. */
+  function onExampleQuestionClick(question: string) {
+    initialRoadmapRequestedRef.current = true;
+    setEntryStep("chat");
+    sendMessage(question, profile);
   }
 
   /** 통합 프로필 폼 제출 콜백 — 저장 후 대화 시작(또는 이어서). */
@@ -268,6 +315,19 @@ export function ChatWindow() {
           {profile?.age}세 · {profile?.employmentType} 조건으로 바로 상담을
           이어가거나, 조건을 다시 입력할 수 있어요.
         </p>
+        {lastSummary && (
+          <div className="mb-5 rounded-lg bg-sprout-50 border border-sprout-100 px-3 py-2.5 text-left">
+            <div className="text-[11px] font-semibold text-sprout-700 mb-0.5">
+              지난 상담 결과
+            </div>
+            <div className="text-xs text-slate-700">
+              <b>{lastSummary.title}</b> 추천
+              {lastSummary.goalRate != null && (
+                <> · 목표 달성률 {lastSummary.goalRate.toFixed(0)}%</>
+              )}
+            </div>
+          </div>
+        )}
         <div className="flex flex-col gap-2">
           <button
             type="button"
@@ -288,6 +348,23 @@ export function ChatWindow() {
             <Settings2 size={15} />
             조건 입력하기
           </button>
+        </div>
+        <div className="mt-6 pt-5 border-t border-slate-100 text-left">
+          <div className="text-[11px] font-semibold text-slate-500 mb-2">
+            이런 질문도 할 수 있어요
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {EXAMPLE_QUESTIONS.map((q) => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => onExampleQuestionClick(q)}
+                className="text-xs px-2.5 py-1 rounded-full border border-brand-200 text-brand-700 bg-white hover:bg-brand-50 transition"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -437,6 +514,20 @@ export function ChatWindow() {
           </div>
         ) : (
           <div className="space-y-4">
+            {profile?.monthlyBudget != null && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <ConditionSlider
+                  label="월 저축액 (즉석 재계산)"
+                  value={profile.monthlyBudget}
+                  min={100_000}
+                  max={3_000_000}
+                  step={50_000}
+                  formatValue={(v) => `${Math.round(v / 10_000).toLocaleString("ko-KR")}만원`}
+                  onCommit={onBudgetSliderCommit}
+                  disabled={chat.isPending}
+                />
+              </div>
+            )}
             {latestRoadmapBlocks.map((b, i) => (
               <ChatBlockRenderer
                 key={i}
