@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class",
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
@@ -12,6 +13,13 @@ const config: Config = {
           500: "#3b82f6",
           600: "#2563eb",
           700: "#1d4ed8",
+        },
+        // "성장(새싹)" 모티프의 보조 포인트 컬러 — 랜딩페이지에서 brand(파랑)와 함께 사용.
+        sprout: {
+          50: "#ecfdf5",
+          100: "#d1fae5",
+          500: "#10b981",
+          600: "#059669",
         },
       },
     },

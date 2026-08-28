@@ -1,11 +1,27 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { QueryProvider } from "@/lib/queryClient";
-import Link from "next/link";
+import { SiteHeader } from "@/components/SiteHeader";
+import { ScrollToTopButton } from "@/components/ScrollToTopButton";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
+
+const TITLE = "SeedUp — 사회초년생 시드머니 빌드업 AI 비서";
+const DESCRIPTION =
+  "나이·소득·지역·목표만 알려주면 정책 금융 매칭과 자산관리 로드맵을 AI가 함께 만들어 드립니다.";
 
 export const metadata: Metadata = {
-  title: "SeedUp — 사회초년생 시드머니 빌드업 AI 비서",
-  description: "정책 금융 매칭 + 자산관리 로드맵",
+  title: TITLE,
+  description: DESCRIPTION,
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
 };
 
 export default function RootLayout({
@@ -15,25 +31,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
+      <head>
+        {/* 하이드레이션 전 다크모드 깜빡임(FOUC) 방지 */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body>
         <QueryProvider>
-          <div className="min-h-screen">
-            <header className="border-b bg-white">
-              <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-                <Link href="/" className="text-lg font-bold text-brand-700">
-                  🌱 SeedUp
-                </Link>
-                <nav className="flex gap-4 text-sm text-slate-600">
-                  <Link href="/onboarding" className="hover:text-brand-700">
-                    프로필
-                  </Link>
-                  <Link href="/chat" className="hover:text-brand-700">
-                    AI 상담
-                  </Link>
-                </nav>
-              </div>
-            </header>
+          <div className="min-h-screen bg-white dark:bg-slate-950">
+            <SiteHeader />
             <main>{children}</main>
+            <ScrollToTopButton />
           </div>
         </QueryProvider>
       </body>
