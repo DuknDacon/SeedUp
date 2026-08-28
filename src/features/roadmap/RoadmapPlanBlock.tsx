@@ -141,64 +141,55 @@ function ActionChecklist({ evidenceUrl }: { evidenceUrl?: string }) {
   );
 }
 
-/** 원금·예상액·목표달성률·부족액을 막대그래프/뱃지로 시각화. */
+/**
+ * 원금·예상액·목표달성률·부족액을 막대 하나로 통합 시각화.
+ * 0→원금(파랑)→예상액(초록, 성장분)→(부족분 있으면) 목표까지 남은 구간(회색 빗금).
+ */
 function MetricsPanel({ scenario }: { scenario: Scenario }) {
   const { principal, expectedAmount, goalRate, shortfall } = scenario;
-  const clampedRate = goalRate == null ? 0 : Math.min(Math.max(goalRate, 0), 100);
-  const rateColor =
-    goalRate == null
-      ? "bg-slate-300"
-      : goalRate >= 100
-        ? "bg-sprout-500"
-        : goalRate >= 70
-          ? "bg-amber-400"
-          : "bg-rose-400";
   const achieved = shortfall == null || shortfall <= 0;
+  const gap = achieved ? 0 : shortfall;
 
-  // 원금 대비 예상액 막대 — 원금 구간 + 늘어난 구간(이자·정부지원 등)을 함께 표시.
-  const growth = Math.max((expectedAmount ?? 0) - (principal ?? 0), 0);
-  const barTotal = Math.max(expectedAmount ?? 0, principal ?? 0, 1);
-  const principalPct = ((principal ?? 0) / barTotal) * 100;
+  const principalAmt = principal ?? 0;
+  const expectedAmt = expectedAmount ?? 0;
+  const growth = Math.max(expectedAmt - principalAmt, 0);
+  // 부족분까지 포함한 막대 전체 길이 — 목표 지점까지 한눈에 보이게.
+  const barTotal = Math.max(expectedAmt + gap, principalAmt, 1);
+  const principalPct = (principalAmt / barTotal) * 100;
   const growthPct = (growth / barTotal) * 100;
+  const gapPct = (gap / barTotal) * 100;
 
   return (
-    <div className="mt-3 space-y-3">
-      <div>
-        <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
-          <span>목표 달성률</span>
-          <span className="font-semibold text-slate-700">
-            {goalRate == null ? "-" : `${goalRate.toFixed(1)}%`}
-          </span>
-        </div>
-        <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+    <div className="mt-3">
+      <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+        <span>
+          원금 <b className="text-slate-700">{won(principal)}</b> → 예상액{" "}
+          <b className="text-slate-700">{won(expectedAmount)}</b>
+        </span>
+        <span className="font-semibold text-slate-700">
+          {goalRate == null ? "-" : `${goalRate.toFixed(1)}%`}
+        </span>
+      </div>
+      <div className="h-3 flex rounded-full bg-slate-100 overflow-hidden">
+        <div className="h-full bg-brand-400" style={{ width: `${principalPct}%` }} />
+        <div className="h-full bg-sprout-500" style={{ width: `${growthPct}%` }} />
+        {!achieved && (
           <div
-            className={`h-full rounded-full ${rateColor}`}
-            style={{ width: `${clampedRate}%` }}
+            className="h-full bg-[repeating-linear-gradient(45deg,#fecdd3,#fecdd3_4px,#fff1f2_4px,#fff1f2_8px)]"
+            style={{ width: `${gapPct}%` }}
           />
-        </div>
+        )}
       </div>
-
-      <div>
-        <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
-          <span>원금 → 예상액</span>
-          <span className="font-semibold text-slate-700">
-            {won(principal)} → {won(expectedAmount)}
+      <div className="mt-1.5">
+        {achieved ? (
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-sprout-700">
+            ✓ 목표 달성
           </span>
-        </div>
-        <div className="h-2 flex rounded-full bg-slate-100 overflow-hidden">
-          <div className="h-full bg-brand-400" style={{ width: `${principalPct}%` }} />
-          <div className="h-full bg-sprout-400" style={{ width: `${growthPct}%` }} />
-        </div>
-      </div>
-
-      <div
-        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-          achieved
-            ? "bg-sprout-50 text-sprout-700"
-            : "bg-rose-50 text-rose-700"
-        }`}
-      >
-        {achieved ? "✓ 목표 달성" : `목표까지 ${won(shortfall)} 부족`}
+        ) : (
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600">
+            목표까지 {won(shortfall)} 부족
+          </span>
+        )}
       </div>
     </div>
   );
