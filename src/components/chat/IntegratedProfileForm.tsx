@@ -183,8 +183,12 @@ export function IntegratedProfileForm({
     { title: "기능① 정책 매칭 조건" },
     { title: "기능② 자산관리 로드맵 조건" },
   ] as const;
+  // eslint-disable-next-line no-console
+  console.log("[QuizForm] render, step=", step, "STEP_META.length=", STEP_META.length);
 
   function goNext() {
+    // eslint-disable-next-line no-console
+    console.log("[QuizForm] goNext called, current step=", step);
     setErr(null);
     if (step === 0) {
       if (!isRealDate(birthDate)) return setErr("생년월일을 올바른 날짜로 입력해주세요.");
@@ -192,7 +196,12 @@ export function IntegratedProfileForm({
       if (incomeManwon.trim() === "") return setErr("연 소득을 입력해주세요.");
       if (householdSize.trim() === "") return setErr("가구원 수를 입력해주세요.");
     }
-    setStep((s) => Math.min(s + 1, STEP_META.length - 1));
+    setStep((s) => {
+      const next = Math.min(s + 1, STEP_META.length - 1);
+      // eslint-disable-next-line no-console
+      console.log("[QuizForm] setStep updater, prev=", s, "next=", next);
+      return next;
+    });
   }
 
   function goBack() {
@@ -213,6 +222,8 @@ export function IntegratedProfileForm({
   }
 
   function handleSubmit(e: React.FormEvent) {
+    // eslint-disable-next-line no-console
+    console.log("[QuizForm] handleSubmit fired! step=", step, "submitter=", (e.nativeEvent as SubmitEvent)?.submitter);
     e.preventDefault();
     setErr(null);
     if (!isRealDate(birthDate)) return setErr("생년월일을 올바른 날짜로 입력해주세요.");

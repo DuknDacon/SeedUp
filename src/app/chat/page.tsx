@@ -3,8 +3,9 @@ import { ChatWindow } from "@/components/chat/ChatWindow";
 export default function ChatPage() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-2 break-keep">
-        🌱 AI 상담
+      <h1 className="flex items-center gap-2 text-2xl md:text-3xl font-extrabold text-slate-900 mb-2 break-keep">
+        <span>🌱</span>
+        <span>AI 상담</span>
       </h1>
       <p className="text-sm text-slate-500 mb-6 break-keep">
         정책 금융 매칭과 자산관리 로드맵을 한 대화에서 이어서 물어보세요. 첫
