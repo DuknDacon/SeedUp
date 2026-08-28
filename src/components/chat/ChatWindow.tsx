@@ -14,6 +14,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Bot, Settings2 } from "lucide-react";
 import { sendChat } from "@/services/chatApi";
 import {
+  clearProfile,
   getOrCreateThreadId,
   loadProfile,
   mergeProfile,
@@ -187,8 +188,11 @@ export function ChatWindow() {
 
   function onReset() {
     resetThreadId();
+    clearProfile();
     setThreadId(getOrCreateThreadId());
+    setProfile(null);
     setMessages([]);
+    setShowForm(true);
     initialRoadmapRequestedRef.current = false;
   }
 
@@ -294,6 +298,7 @@ export function ChatWindow() {
           </div>
           <button
             onClick={onReset}
+            title="대화 내용과 저장된 프로필(생년월일·소득 등)을 모두 지우고 새로 시작합니다. 다른 사람과 이 기기를 함께 쓴다면 이용 후 눌러주세요."
             className="text-slate-500 hover:text-slate-800 flex-shrink-0 ml-2"
           >
             새 대화
