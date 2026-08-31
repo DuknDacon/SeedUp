@@ -66,13 +66,23 @@ def chat(req: ChatRequestIn) -> ChatResponseOut:
     policy_thread_id = f"{req.threadId}::policy"
     roadmap_thread_id = f"{req.threadId}::roadmap"
 
-    profile = req.profile.model_dump() if req.profile else None
-
     # MemorySaver 체크포인트는 리듀서가 없는 필드를 이번 turn 의 invoke 입력값으로
     # 그대로 덮어쓴다. profile_delivered_* 를 매번 False 로 넣으면 하위 노드가 직전
     # turn 에 True 로 저장해둔 값이 다음 turn 에서 무조건 지워져 "첫 호출" 상태가
     # 영원히 반복된다 — 직전 체크포인트 값을 먼저 읽어 이어받는다.
     prior_state = router.get_state(thread_config).values or {}
+
+    # profile 도 같은 문제를 겪는다: 이번 요청의 profile 로 무조건 덮어쓰면, 프론트가
+    # 어떤 이유로든(레이스·새로고침 타이밍 등) profile 없이 요청을 보낸 turn 에
+    # 라우터가 이미 갖고 있던 완전한 프로필이 통째로 사라진다 — 그 뒤로는 매번
+    # profile_ask 폼이 다시 뜨는 버그. profile_delivered_* 와 동일하게 prior_state
+    # 위에 이번 turn 값을 얹는(병합) 방식으로 방어한다.
+    # exclude_none=True: 이번 요청에 없는/null 인 필드가 이전 turn 의 값을 지우지
+    # 않게 — 프론트는 매 turn 전체 프로필을 다시 보내는 게 정상이라 평소엔 결과가
+    # 기존과 동일하고, 위 방어가 필요한 예외적인 turn 에서만 차이가 난다.
+    prior_profile = prior_state.get("profile")
+    incoming_profile = req.profile.model_dump(exclude_none=True) if req.profile else None
+    profile = {**(prior_profile or {}), **(incoming_profile or {})} or None
 
     initial = {
         "messages": [HumanMessage(content=req.message)],
