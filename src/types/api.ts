@@ -56,6 +56,7 @@ export type RoadmapProfileFields = {
   // 다시 선언하면 교집합 타입이 좁아져 그쪽의 "any" 값이 깨진다.
   employed?: boolean | null;
   isSmeEmployee?: boolean | null;
+  financialIncomeTaxed?: boolean | null;
   monthlyTakeHome?: number | null;
   targetAmount?: number | null;
   hasEmergencyFund?: boolean | null;
@@ -197,13 +198,15 @@ type SuggestedRepliesBlock = { type: "suggested_replies"; suggestions: string[] 
  * fields[].key         — profile 필드명 (그대로 프로필에 저장)
  * fields[].label       — 폼 라벨
  * fields[].question    — 대화창에 표시할 안내 문구
- * fields[].inputType   — "date" | "number" | "text"
+ * fields[].inputType   — "date" | "number" | "text" | "boolean"
+ *   ("boolean"은 예/아니오 select — Roadmap-Agent가 로드맵 생성 전 사전
+ *   체크로 물어보는 financialIncomeTaxed 같은 필드용)
  */
 export type ProfileAskField = {
   key: string;
   label: string;
   question: string;
-  inputType: "date" | "number" | "text";
+  inputType: "date" | "number" | "text" | "boolean";
 };
 
 type ProfileAskBlock = {

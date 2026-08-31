@@ -67,6 +67,29 @@ _REQUIRED_SLOTS: list[dict[str, str]] = [
 ]
 
 
+# Roadmap-Agent 가 로드맵 생성 전 사전 체크로 물어보는 필드(missingFields) →
+# profile_ask 슬롯 매핑. 필드가 늘어나면 여기 한 곳만 추가하면 된다.
+_ROADMAP_PRELAUNCH_FIELDS: dict[str, dict[str, str]] = {
+    "financial_income_taxed": {
+        "key": "financialIncomeTaxed",
+        "label": "금융소득종합과세",
+        "inputType": "boolean",
+    },
+}
+
+
+def _map_missing_fields(
+    missing_fields: list[str], chat_reply: str | None
+) -> list[dict[str, str]]:
+    fields = []
+    for name in missing_fields:
+        slot = _ROADMAP_PRELAUNCH_FIELDS.get(name)
+        if slot is None:
+            continue
+        fields.append({**slot, "question": chat_reply or slot["label"]})
+    return fields
+
+
 def _missing_slots(profile: dict[str, Any] | None) -> list[dict[str, str]]:
     """Roadmap-Agent 호출 전 필수 슬롯 검사 — 유추 불가능한 필드만."""
     if not profile:
@@ -151,10 +174,25 @@ async def call_roadmap_agent(
 
     blocks: list[dict[str, Any]] = []
     chat_reply = data.get("chatReply")
-    if chat_reply:
-        blocks.append({"type": "text", "content": chat_reply})
-    # 전체 응답을 roadmap_plan 블록으로 통째 상재 → 프론트가 기존 렌더러 재사용.
-    blocks.append({"type": "roadmap_plan", "plan": data})
+    if data.get("conversationStatus") == "needs_input" and not data.get("recommended"):
+        # 로드맵 생성 전 DB 매칭 후보에 사용자 입력만으로는 판정 못 하는 필드가
+        # 걸려 로드맵 없이 질문만 온 경우 — 이미 있는 profile_ask 메커니즘을
+        # 그대로 재사용한다(_missing_slots 와 동일한 블록 형태). roadmap_plan
+        # 블록은 여기서 만들지 않는다 — recommended 가 없는 채로 만들면 프론트
+        # 렌더러(`ChatWindow.tsx`의 `roadmapBlock.plan.recommended.title`)가
+        # 그대로 크래시난다.
+        blocks.append(
+            {
+                "type": "profile_ask",
+                "context": "roadmap",
+                "fields": _map_missing_fields(data.get("missingFields") or [], chat_reply),
+            }
+        )
+    else:
+        if chat_reply:
+            blocks.append({"type": "text", "content": chat_reply})
+        # 전체 응답을 roadmap_plan 블록으로 통째 상재 → 프론트가 기존 렌더러 재사용.
+        blocks.append({"type": "roadmap_plan", "plan": data})
 
     request_patch = data.get("requestPatch")
     print(f"[R-HTTP ←] {r.status_code} in {elapsed:.2f}s | blocks={len(blocks)} patch={'y' if request_patch else 'n'}")
@@ -191,6 +229,7 @@ def _build_payload(
         "employed": _coerce_employed(profile),
         "employmentType": profile.get("employmentType"),
         "isSmeEmployee": profile.get("isSmeEmployee"),
+        "financialIncomeTaxed": profile.get("financialIncomeTaxed"),
         "monthlyTakeHome": profile.get("monthlyTakeHome"),
         "monthlyBudget": profile["monthlyBudget"],
         "targetDate": profile["targetDate"],

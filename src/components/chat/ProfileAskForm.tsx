@@ -40,6 +40,8 @@ export function ProfileAskForm({
       if (f.inputType === "number") {
         const n = Number(raw.replace(/[,_\s]/g, ""));
         if (!Number.isNaN(n)) (patch as Record<string, unknown>)[f.key] = n;
+      } else if (f.inputType === "boolean") {
+        (patch as Record<string, unknown>)[f.key] = raw === "true";
       } else {
         (patch as Record<string, unknown>)[f.key] = raw;
       }
@@ -59,17 +61,34 @@ export function ProfileAskForm({
         {fields.map((f) => (
           <div key={f.key} className="flex flex-col gap-1">
             <label className="text-[12px] text-slate-700">{f.question}</label>
-            <input
-              type={f.inputType === "number" ? "number" : f.inputType === "date" ? "date" : "text"}
-              inputMode={f.inputType === "number" ? "numeric" : undefined}
-              value={values[f.key] ?? ""}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, [f.key]: e.target.value }))
-              }
-              placeholder={f.label}
-              disabled={submitted}
-              className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm"
-            />
+            {f.inputType === "boolean" ? (
+              <select
+                value={values[f.key] ?? ""}
+                onChange={(e) =>
+                  setValues((v) => ({ ...v, [f.key]: e.target.value }))
+                }
+                disabled={submitted}
+                className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm"
+              >
+                <option value="" disabled>
+                  선택해주세요
+                </option>
+                <option value="true">예</option>
+                <option value="false">아니오</option>
+              </select>
+            ) : (
+              <input
+                type={f.inputType === "number" ? "number" : f.inputType === "date" ? "date" : "text"}
+                inputMode={f.inputType === "number" ? "numeric" : undefined}
+                value={values[f.key] ?? ""}
+                onChange={(e) =>
+                  setValues((v) => ({ ...v, [f.key]: e.target.value }))
+                }
+                placeholder={f.label}
+                disabled={submitted}
+                className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm"
+              />
+            )}
           </div>
         ))}
       </div>
