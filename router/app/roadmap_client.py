@@ -68,25 +68,47 @@ _REQUIRED_SLOTS: list[dict[str, str]] = [
 
 
 # Roadmap-Agent 가 로드맵 생성 전 사전 체크로 물어보는 필드(missingFields) →
-# profile_ask 슬롯 매핑. 필드가 늘어나면 여기 한 곳만 추가하면 된다.
+# profile_ask 슬롯 매핑. 상품마다 필요한 조건이 달라 후보가 늘어날수록 이
+# 사전 체크가 걸 수 있는 필드도 늘어난다 — 새 필드가 생기면 여기 한 곳만
+# 추가하면 된다. question 문구는 Roadmap-Agent의
+# `src/roadmap_agent/conversation.py` 상수와 같은 뜻으로 맞춰 둔다(레포가
+# 분리돼 있어 완전한 중복 제거는 못 하지만, 실제 질문 판단은 항상
+# Roadmap-Agent 쪽 값이 기준).
 _ROADMAP_PRELAUNCH_FIELDS: dict[str, dict[str, str]] = {
     "financial_income_taxed": {
         "key": "financialIncomeTaxed",
         "label": "금융소득종합과세",
+        "question": "최근 3년 안에 금융소득종합과세 대상이 된 적이 있나요?",
         "inputType": "boolean",
+    },
+    "is_sme_employee": {
+        "key": "isSmeEmployee",
+        "label": "중소기업 재직 여부",
+        "question": "현재 중소기업에 재직 중인가요?",
+        "inputType": "boolean",
+    },
+    "household_monthly_income": {
+        "key": "householdMonthlyIncome",
+        "label": "가구 전체 월소득",
+        "question": "가구 전체의 월소득은 얼마인가요? (원 단위)",
+        "inputType": "number",
+    },
+    "previous_annual_income": {
+        "key": "previousAnnualIncome",
+        "label": "직전년도 연 소득",
+        "question": "직전년도(전년도) 실제 연 소득은 세전 기준으로 얼마였나요? (원 단위)",
+        "inputType": "number",
     },
 }
 
 
-def _map_missing_fields(
-    missing_fields: list[str], chat_reply: str | None
-) -> list[dict[str, str]]:
+def _map_missing_fields(missing_fields: list[str]) -> list[dict[str, str]]:
     fields = []
     for name in missing_fields:
         slot = _ROADMAP_PRELAUNCH_FIELDS.get(name)
         if slot is None:
             continue
-        fields.append({**slot, "question": chat_reply or slot["label"]})
+        fields.append(dict(slot))
     return fields
 
 
@@ -185,7 +207,7 @@ async def call_roadmap_agent(
             {
                 "type": "profile_ask",
                 "context": "roadmap",
-                "fields": _map_missing_fields(data.get("missingFields") or [], chat_reply),
+                "fields": _map_missing_fields(data.get("missingFields") or []),
             }
         )
     else:
@@ -215,9 +237,12 @@ def _build_payload(
 
     return {
         "birthDate": profile["birthDate"],
-        "previousAnnualIncome": profile.get("previousAnnualIncome")
-        or profile.get("annualIncomeKrw")
-        or 0,
+        # currentAnnualIncome 과 달리 여기서 annualIncomeKrw 로 조용히 대체하지
+        # 않는다 — 실제로는 다른 값일 수 있는데 같다고 가정해버리면, 직전년도
+        # 소득이 자격 기준인 상품의 판정이 틀릴 수 있다. 값이 없으면(온보딩
+        # 폼에는 이 필드가 없음) None 그대로 보내 백엔드가 실제로 필요한
+        # 후보가 있을 때만 profile_ask 로 되묻게 한다.
+        "previousAnnualIncome": profile.get("previousAnnualIncome"),
         "currentAnnualIncome": profile.get("currentAnnualIncome")
         or profile.get("annualIncomeKrw")
         or 0,
@@ -230,6 +255,7 @@ def _build_payload(
         "employmentType": profile.get("employmentType"),
         "isSmeEmployee": profile.get("isSmeEmployee"),
         "financialIncomeTaxed": profile.get("financialIncomeTaxed"),
+        "householdMonthlyIncome": profile.get("householdMonthlyIncome"),
         "monthlyTakeHome": profile.get("monthlyTakeHome"),
         "monthlyBudget": profile["monthlyBudget"],
         "targetDate": profile["targetDate"],

@@ -150,31 +150,19 @@ export function IntegratedProfileForm({
       ? String(initial.hasEmergencyFund) as "true" | "false"
       : "false",
   );
-  // 로드맵 선택 항목 — 비워두면 각각의 자연스러운 기본값으로 처리됨.
+  // 로드맵 필수 항목(목표 금액/투자 성향/투자상품 최대 배분). 상품별로 다르게
+  // 필요한 나머지 항목(중소기업 재직 여부, 금융소득종합과세 대상 여부 등)은
+  // 여기서 묻지 않는다 — DB 매칭 후보가 실제로 요구할 때만 로드맵 첫 호출의
+  // profile_ask 응답으로 AI가 능동적으로 되묻는다.
   // TODO(임시): 테스트 편의를 위해 일반적인 값으로 기본값 채움. 실제 배포 전 제거 검토.
-  const [previousIncomeManwon, setPreviousIncomeManwon] = useState<string>(
-    initial?.previousAnnualIncome != null
-      ? String(Math.round(initial.previousAnnualIncome / 10_000))
-      : "3000",
-  );
-  const [isSmeEmployee, setIsSmeEmployee] = useState<"" | "true" | "false">(
-    typeof initial?.isSmeEmployee === "boolean"
-      ? (String(initial.isSmeEmployee) as "true" | "false")
-      : "false",
-  );
-  const [monthlyTakeHomeManwon, setMonthlyTakeHomeManwon] = useState<string>(
-    initial?.monthlyTakeHome != null
-      ? String(Math.round(initial.monthlyTakeHome / 10_000))
-      : "220",
-  );
   const [targetAmountManwon, setTargetAmountManwon] = useState<string>(
     initial?.targetAmount != null
       ? String(Math.round(initial.targetAmount / 10_000))
       : "5000",
   );
-  const [riskLevel, setRiskLevel] = useState<
-    "" | "stable" | "balanced" | "growth"
-  >(initial?.riskLevel ?? "balanced");
+  const [riskLevel, setRiskLevel] = useState<"stable" | "balanced" | "growth">(
+    initial?.riskLevel ?? "balanced",
+  );
   const [investmentCap, setInvestmentCap] = useState<string>(
     initial?.investmentCap != null ? String(initial.investmentCap) : "30",
   );
@@ -246,40 +234,19 @@ export function IntegratedProfileForm({
     if (!Number.isInteger(hh) || hh < 1)
       return setErr("가구원 수를 확인해주세요.");
 
-    const optionalWon = (value: string, label: string): number | undefined => {
-      if (value.trim() === "") return undefined;
-      const parsed = Number(value.replace(/[,_\s]/g, ""));
-      if (!Number.isFinite(parsed) || parsed <= 0) throw new Error(`${label}은 0보다 크게 입력해주세요.`);
-      return Math.round(parsed * 10_000);
-    };
-    let previousIncome: number | undefined;
-    let monthlyTakeHome: number | undefined;
-    let targetAmount: number | undefined;
-    try {
-      previousIncome = previousIncomeManwon.trim() === "" ? undefined : Math.round(Number(previousIncomeManwon) * 10_000);
-      if (previousIncome != null && (!Number.isFinite(previousIncome) || previousIncome < 0))
-        return setErr("직전년도 연 소득은 0 이상으로 입력해주세요.");
-      monthlyTakeHome = optionalWon(monthlyTakeHomeManwon, "월 실수령액");
-      targetAmount = optionalWon(targetAmountManwon, "목표 금액");
-    } catch (cause) {
-      return setErr(cause instanceof Error ? cause.message : "선택 입력값을 확인해주세요.");
-    }
+    const targetAmountWon = Number(targetAmountManwon.replace(/[,_\s]/g, ""));
+    if (!Number.isFinite(targetAmountWon) || targetAmountWon <= 0)
+      return setErr("목표 금액을 확인해주세요.");
+    const targetAmount = Math.round(targetAmountWon * 10_000);
     const budgetKrw = Math.round(budget * 10_000);
-    if (monthlyTakeHome != null && budgetKrw > monthlyTakeHome)
-      return setErr("월 저축여력은 월 실수령액보다 클 수 없습니다.");
-    const cap = investmentCap.trim() === "" ? null : Number(investmentCap);
-    if (cap != null && (!Number.isInteger(cap) || cap < 0 || cap > 100))
+    const cap = Number(investmentCap);
+    if (!Number.isInteger(cap) || cap < 0 || cap > 100)
       return setErr("투자상품 최대 배분은 0에서 100 사이의 정수로 입력해주세요.");
 
     // regionCode(5자리 법정동)에서 province(앞 2자리) 도출.
     const districtCode = (regionCode || "11110").trim();
     const provinceCode = districtCode.slice(0, 2) || "11";
     const currentIncomeKrw = Math.round(income * 10_000);
-
-    // 선택 항목은 빈 문자열이면 undefined 로 흘려보내 백엔드/에이전트가 각자의
-    // 기본값(예: riskLevel → "balanced")을 적용하게 둔다.
-    const toBoolOrUndefined = (v: "" | "true" | "false") =>
-      v === "" ? undefined : v === "true";
 
     const next: UserProfile = {
       ...(initial ?? {}),
@@ -307,14 +274,13 @@ export function IntegratedProfileForm({
       regionDistrictCode: districtCode,
       regionProvinceCode: provinceCode,
       hasEmergencyFund: hasEmergencyFund === "true",
-      // 현재 연소득은 위 annualIncomeKrw 와 동일 값. 직전년도 소득은 비워두면
-      // Roadmap-Agent 쪽에서 현재 소득과 같은 값으로 처리된다(소득 변동 없음 가정).
+      // 현재 연소득은 위 annualIncomeKrw 와 동일 값. previousAnnualIncome 은
+      // 이 폼에서 묻지 않는다 — 비워두면 Roadmap-Agent 가 현재 소득과 같은
+      // 값으로 처리한다(소득 변동 없음 가정). 상품이 실제로 이 값을 요구하면
+      // profile_ask 로 능동적으로 되묻는다.
       currentAnnualIncome: currentIncomeKrw,
-      previousAnnualIncome: previousIncome ?? null,
-      isSmeEmployee: toBoolOrUndefined(isSmeEmployee) ?? null,
-      monthlyTakeHome: monthlyTakeHome ?? null,
-      targetAmount: targetAmount ?? null,
-      riskLevel: riskLevel || null,
+      targetAmount,
+      riskLevel,
       investmentCap: cap,
       // 통합 상담에서는 온보딩 자유질문 자동 전송을 재사용하지 않는다.
       freeTextQuery: null,
@@ -515,85 +481,42 @@ export function IntegratedProfileForm({
               <option value="false">아니오</option>
             </select>
           </Field>
+          <Field label="목표 금액 (만원)">
+            <input
+              type="number"
+              value={targetAmountManwon}
+              onChange={(e) => setTargetAmountManwon(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+              min={1}
+              required
+            />
+          </Field>
+          <Field label="투자 성향">
+            <select
+              value={riskLevel}
+              onChange={(e) =>
+                setRiskLevel(e.target.value as "stable" | "balanced" | "growth")
+              }
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+              required
+            >
+              <option value="stable">안정형</option>
+              <option value="balanced">균형형</option>
+              <option value="growth">성장형</option>
+            </select>
+          </Field>
+          <Field label="투자상품 최대 배분 (%)">
+            <input
+              type="number"
+              value={investmentCap}
+              onChange={(e) => setInvestmentCap(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+              min={0}
+              max={100}
+              required
+            />
+          </Field>
         </div>
-
-        <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2" open>
-          <summary className="text-xs font-semibold text-brand-700 cursor-pointer select-none">
-            세부 항목 (선택 — 입력하면 로드맵 정확도가 올라가요)
-          </summary>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2 mt-3">
-            <Field label="직전년도 연 소득 (만원)" hint="비워두면 위 연 소득과 동일하게 처리">
-              <input
-                type="number"
-                value={previousIncomeManwon}
-                onChange={(e) => setPreviousIncomeManwon(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                min={0}
-                placeholder="입력하지 않음"
-              />
-            </Field>
-            <Field label="중소기업 재직 여부" hint="재직 중인 경우에만 사용">
-              <select
-                value={isSmeEmployee}
-                onChange={(e) =>
-                  setIsSmeEmployee(e.target.value as "" | "true" | "false")
-                }
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-              >
-                <option value="">입력하지 않음</option>
-                <option value="true">예</option>
-                <option value="false">아니오</option>
-              </select>
-            </Field>
-            <Field label="월 실수령액 (만원)">
-              <input
-                type="number"
-                value={monthlyTakeHomeManwon}
-                onChange={(e) => setMonthlyTakeHomeManwon(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                min={0}
-                placeholder="입력하지 않음"
-              />
-            </Field>
-            <Field label="목표 금액 (만원)">
-              <input
-                type="number"
-                value={targetAmountManwon}
-                onChange={(e) => setTargetAmountManwon(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                min={0}
-                placeholder="입력하지 않음"
-              />
-            </Field>
-            <Field label="투자 성향">
-              <select
-                value={riskLevel}
-                onChange={(e) =>
-                  setRiskLevel(
-                    e.target.value as "" | "stable" | "balanced" | "growth",
-                  )
-                }
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-              >
-                <option value="">입력하지 않음</option>
-                <option value="stable">안정형</option>
-                <option value="balanced">균형형</option>
-                <option value="growth">성장형</option>
-              </select>
-            </Field>
-            <Field label="투자상품 최대 배분 (%)">
-              <input
-                type="number"
-                value={investmentCap}
-                onChange={(e) => setInvestmentCap(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                min={0}
-                max={100}
-                placeholder="입력하지 않음"
-              />
-            </Field>
-          </div>
-        </details>
       </div>
       )}
 

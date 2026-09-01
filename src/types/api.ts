@@ -57,6 +57,7 @@ export type RoadmapProfileFields = {
   employed?: boolean | null;
   isSmeEmployee?: boolean | null;
   financialIncomeTaxed?: boolean | null;
+  householdMonthlyIncome?: number | null; // 원 단위, 2인 이상 가구만 해당
   monthlyTakeHome?: number | null;
   targetAmount?: number | null;
   hasEmergencyFund?: boolean | null;
