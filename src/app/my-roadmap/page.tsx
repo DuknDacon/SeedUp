@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { MessageCircle, Sparkles } from "lucide-react";
+import { MessageCircle, Sparkles, Trash2 } from "lucide-react";
 import {
+  deleteRoadmapHistoryEntry,
   loadRoadmapHistory,
   type RoadmapHistoryEntry,
 } from "@/lib/roadmapHistory";
@@ -51,7 +52,15 @@ export default function MyRoadmapPage() {
   function resumeEntry(entry: RoadmapHistoryEntry) {
     saveProfile(entry.profile);
     setActiveThreadId(entry.threadId);
-    router.push("/chat");
+    // ?resume=1 — "이전에 입력한 조건이 있어요" 픽커를 또 거치지 않고 바로
+    // 채팅 화면으로 이어간다(이 조건으로 상담할 거라는 의도가 이미 명확하므로).
+    router.push("/chat?resume=1");
+  }
+
+  function removeEntry(entry: RoadmapHistoryEntry) {
+    if (!window.confirm("이 상담 이력을 삭제할까요? 되돌릴 수 없어요.")) return;
+    deleteRoadmapHistoryEntry(entry.threadId);
+    setEntries((cur) => cur?.filter((e) => e.threadId !== entry.threadId));
   }
 
   return (
@@ -118,14 +127,24 @@ export default function MyRoadmapPage() {
                 <span className="text-[11px] text-slate-400">
                   {formatDate(entry.generatedAt)}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => resumeEntry(entry)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-brand-600 text-white text-xs font-semibold hover:bg-brand-700 transition"
-                >
-                  <MessageCircle size={13} />
-                  이어서 상담하기
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => removeEntry(entry)}
+                    title="이 상담 이력 삭제"
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => resumeEntry(entry)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-brand-600 text-white text-xs font-semibold hover:bg-brand-700 transition"
+                  >
+                    <MessageCircle size={13} />
+                    이어서 상담하기
+                  </button>
+                </div>
               </div>
             </div>
           ))}

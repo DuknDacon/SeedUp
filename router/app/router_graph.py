@@ -117,8 +117,9 @@ def _get_router_llm():
     if _router_llm is None:
         t0 = time.monotonic()
         _router_llm = ChatGoogleGenerativeAI(
+            # gemini-3.5-flash-lite는 고정 샘플링만 지원해 temperature를
+            # 넘겨도 무시되고 매 호출마다 경고 로그만 남는다 — 실효가 없어 제거.
             model=ROUTER_MODEL,
-            temperature=0.1,
             max_output_tokens=1200,
             thinking_level="low",
         )

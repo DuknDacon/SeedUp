@@ -31,7 +31,10 @@ import httpx
 
 
 ROADMAP_API = os.getenv("ROADMAP_API", "http://localhost:8020")
-ROADMAP_TIMEOUT = float(os.getenv("ROADMAP_TIMEOUT", "60"))
+# Gemini RAG 임베딩 호출이 가끔 지연되면서(쿼터 재시도 등) 로드맵 계산 한 번이
+# 60초를 넘기는 경우가 실측됐다 — 기본값을 60s보다 넉넉하게 잡아 그런 순간적인
+# 지연에도 라우터가 먼저 타임아웃으로 포기하지 않게 한다.
+ROADMAP_TIMEOUT = float(os.getenv("ROADMAP_TIMEOUT", "120"))
 
 
 # ============================================================
@@ -79,32 +82,70 @@ _ROADMAP_PRELAUNCH_FIELDS: dict[str, dict[str, str]] = {
         "key": "financialIncomeTaxed",
         "label": "금융소득종합과세",
         "question": "최근 3년 안에 금융소득종합과세 대상이 된 적이 있나요?",
+        "hint": "이자·배당 등으로 받은 금융소득이 1년에 2천만원을 넘으면 다른 소득과 "
+        "합쳐서 세금을 매기는 제도예요. 대부분은 해당 안 되니, 잘 모르겠으면 "
+        "'아니오'를 선택해도 괜찮아요.",
         "inputType": "boolean",
     },
     "is_sme_employee": {
         "key": "isSmeEmployee",
         "label": "중소기업 재직 여부",
         "question": "현재 중소기업에 재직 중인가요?",
+        "hint": "다니는 회사가 중소기업(대기업·공공기관이 아닌 곳)인지 물어보는 거예요.",
         "inputType": "boolean",
     },
     "household_monthly_income": {
         "key": "householdMonthlyIncome",
         "label": "가구 전체 월소득",
-        "question": "가구 전체의 월소득은 얼마인가요? (원 단위)",
+        "question": "가구 전체의 월소득은 얼마인가요? (만원 단위)",
+        "hint": "본인뿐 아니라 함께 사는 가족 모두의 한 달 소득을 합친 금액이에요. "
+        "예: 350만원이면 350만 입력.",
         "inputType": "number",
+        "inputUnit": "만원",
     },
     "previous_annual_income": {
         "key": "previousAnnualIncome",
         "label": "직전년도 연 소득",
-        "question": "직전년도(전년도) 실제 연 소득은 세전 기준으로 얼마였나요? (원 단위)",
+        "question": "직전년도(전년도) 실제 연 소득은 세전 기준으로 얼마였나요? (만원 단위)",
+        "hint": "작년 한 해 동안 세금 떼기 전 총 급여(연봉)를 말해요. "
+        "예: 4천만원이면 4000 입력.",
         "inputType": "number",
+        "inputUnit": "만원",
     },
 }
 
 
-def _map_missing_fields(missing_fields: list[str]) -> list[dict[str, str]]:
+def _map_missing_fields(
+    missing_fields: list[str], missing_field_details: list[dict[str, Any]] | None = None
+) -> list[dict[str, str]]:
+    """missingFields(맨 필드명)를 profile_ask 슬롯으로 바꾼다.
+
+    Roadmap-Agent가 missingFieldDetails(질문·힌트·inputType이 이미 채워진
+    구조화된 메타데이터)를 함께 보내주면 그걸 우선 쓴다 — LLM이 상품마다
+    다르게 발견하는 동적 게이트("policy_id:gate_id" 합성 키)는 이 라우터에
+    미리 등록해둘 수 없어, 이 경로가 사실상 유일한 렌더 방법이다. 레거시
+    4개 필드는 여기 등록된 `key`(camelCase 프로필 필드명)로 매핑하지만, 동적
+    게이트는 실제 UserProfile 필드가 아니므로 원본 합성 키를 `key` 그대로
+    유지한다 — 프론트가 답변을 dynamicGateAnswers[key]로 라우팅할 때 쓴다.
+    """
+    details_by_field = {
+        str(detail.get("field")): detail for detail in (missing_field_details or [])
+    }
     fields = []
     for name in missing_fields:
+        detail = details_by_field.get(name)
+        if detail is not None:
+            fields.append(
+                {
+                    "key": name,
+                    "label": detail.get("hint") or detail.get("question", "")[:24],
+                    "question": detail.get("question", ""),
+                    "hint": detail.get("hint"),
+                    "inputType": detail.get("inputType", "boolean"),
+                    "isDynamicGate": ":" in name,
+                }
+            )
+            continue
         slot = _ROADMAP_PRELAUNCH_FIELDS.get(name)
         if slot is None:
             continue
@@ -207,7 +248,9 @@ async def call_roadmap_agent(
             {
                 "type": "profile_ask",
                 "context": "roadmap",
-                "fields": _map_missing_fields(data.get("missingFields") or []),
+                "fields": _map_missing_fields(
+                    data.get("missingFields") or [], data.get("missingFieldDetails")
+                ),
             }
         )
     else:
@@ -265,6 +308,9 @@ def _build_payload(
         "investmentCap": profile.get("investmentCap"),
         "question": question,
         "threadId": _ensure_uuid(thread_id),
+        # "policy_id:gate_id" 합성 키 → 예/아니오. ProfileAskForm이 동적 게이트
+        # 답변을 UserProfile.dynamicGateAnswers 에 모아두면 그대로 실어보낸다.
+        "dynamicGateAnswers": profile.get("dynamicGateAnswers") or {},
     }
 
 

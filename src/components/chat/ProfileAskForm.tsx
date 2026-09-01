@@ -40,17 +40,33 @@ export function ProfileAskForm({
 
     // 입력값을 필드의 inputType 에 맞춰 캐스팅해서 patch 로 만든다.
     const patch: Partial<UserProfile> = {};
+    const gateAnswers: Record<string, boolean> = {};
     for (const f of fields) {
       const raw = (values[f.key] ?? "").trim();
       if (!raw) continue;
+      if (f.isDynamicGate) {
+        // 동적 게이트는 실제 UserProfile 필드가 아니라 "policyId:gateId" 합성
+        // 키다 — patch[f.key]가 아니라 dynamicGateAnswers 맵에 모은다.
+        gateAnswers[f.key] = raw === "true";
+        continue;
+      }
       if (f.inputType === "number") {
         const n = Number(raw.replace(/[,_\s]/g, ""));
-        if (!Number.isNaN(n)) (patch as Record<string, unknown>)[f.key] = n;
+        if (!Number.isNaN(n)) {
+          // inputUnit === "만원"인 필드는 다른 폼 필드들과 같은 방식으로
+          // 만원 단위 입력을 원 단위로 환산해서 저장한다(변환 누락 시 "4000"을
+          // 4,000원으로 보내버려 사실상 미입력과 같아지는 버그가 있었음).
+          (patch as Record<string, unknown>)[f.key] =
+            f.inputUnit === "만원" ? Math.round(n * 10_000) : n;
+        }
       } else if (f.inputType === "boolean") {
         (patch as Record<string, unknown>)[f.key] = raw === "true";
       } else {
         (patch as Record<string, unknown>)[f.key] = raw;
       }
+    }
+    if (Object.keys(gateAnswers).length > 0) {
+      patch.dynamicGateAnswers = gateAnswers;
     }
     if (Object.keys(patch).length === 0) return;
     setSubmitted(true);
@@ -74,10 +90,17 @@ export function ProfileAskForm({
         </span>
       </div>
       <div className="mb-2 font-semibold text-amber-900">{heading}</div>
+      <p className="mb-3 text-[11px] text-slate-500 leading-snug">
+        💬 용어가 헷갈리면 왼쪽 채팅창에 편하게 물어보고, 답을 참고해서
+        아래를 입력해도 돼요.
+      </p>
       <div className="space-y-2">
         {fields.map((f) => (
           <div key={f.key} className="flex flex-col gap-1">
             <label className="text-[12px] text-slate-700">{f.question}</label>
+            {f.hint && (
+              <p className="text-[11px] text-slate-500 leading-snug">{f.hint}</p>
+            )}
             {f.inputType === "boolean" ? (
               <select
                 value={values[f.key] ?? ""}

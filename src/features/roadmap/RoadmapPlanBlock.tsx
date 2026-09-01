@@ -199,7 +199,21 @@ function MetricsPanel({ scenario }: { scenario: Scenario }) {
           />
         )}
       </div>
-      <div className="mt-1.5">
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-400">
+        <span className="inline-flex items-center gap-1">
+          <i className="h-2 w-2 rounded-sm bg-brand-400" /> 원금
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <i className="h-2 w-2 rounded-sm bg-sprout-500" /> 예상 수익
+        </span>
+        {!achieved && (
+          <span className="inline-flex items-center gap-1">
+            <i className="h-2 w-2 rounded-sm bg-[repeating-linear-gradient(45deg,#fecdd3,#fecdd3_2px,#fff1f2_2px,#fff1f2_4px)]" />{" "}
+            목표까지 부족액
+          </span>
+        )}
+      </div>
+      <div className="mt-1">
         {achieved ? (
           <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-sprout-700">
             ✓ 목표 달성

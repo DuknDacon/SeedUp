@@ -63,6 +63,9 @@ export type RoadmapProfileFields = {
   hasEmergencyFund?: boolean | null;
   riskLevel?: "stable" | "balanced" | "growth" | null;
   investmentCap?: number | null;
+  // "policyId:gateId" 합성 키 → 예/아니오. Roadmap-Agent가 상품 원문에서 LLM으로
+  // 미리 발견·캐싱해둔, 4개 하드코딩 필드를 넘어서는 자격조건에 대한 답변.
+  dynamicGateAnswers?: Record<string, boolean> | null;
 };
 
 export type UserProfile = components["schemas"]["UserProfileIn"] &
@@ -199,15 +202,27 @@ type SuggestedRepliesBlock = { type: "suggested_replies"; suggestions: string[] 
  * fields[].key         — profile 필드명 (그대로 프로필에 저장)
  * fields[].label       — 폼 라벨
  * fields[].question    — 대화창에 표시할 안내 문구
+ * fields[].hint        — (선택) "금융소득종합과세"처럼 용어 자체가 어려운
+ *   필드에 붙는 쉬운 말 설명. question 문구는 백엔드 매칭 로직이 그대로
+ *   재사용하는 문자열이라 바꾸지 않고, hint만 추가로 보여준다.
  * fields[].inputType   — "date" | "number" | "text" | "boolean"
  *   ("boolean"은 예/아니오 select — Roadmap-Agent가 로드맵 생성 전 사전
  *   체크로 물어보는 financialIncomeTaxed 같은 필드용)
+ * fields[].inputUnit   — (선택) "만원" — 금액 필드를 다른 폼 필드들과 같은
+ *   방식(만원 입력 → 저장 시 ×10000)으로 받고 싶을 때만 지정한다. 생략하면
+ *   입력값을 그대로(원 단위) 저장한다.
  */
 export type ProfileAskField = {
   key: string;
   label: string;
   question: string;
+  hint?: string;
   inputType: "date" | "number" | "text" | "boolean";
+  inputUnit?: "만원";
+  /** true면 이 필드는 상품별 동적 자격조건 게이트(합성 키 "policyId:gateId")로,
+   * 실제 UserProfile 필드가 아니다 — 답변을 patch[key]가 아니라
+   * patch.dynamicGateAnswers[key]로 라우팅해야 한다(ProfileAskForm 참고). */
+  isDynamicGate?: boolean;
 };
 
 type ProfileAskBlock = {

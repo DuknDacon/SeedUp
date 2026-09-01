@@ -110,9 +110,14 @@ export function ChatWindow() {
     const p = loadProfile();
     setProfile(p);
     setLatestHistoryEntry(loadRoadmapHistory()[0] ?? null);
+    // "내 로드맵"의 "이어서 상담하기"에서 넘어온 경우(?resume=1) — 프로필이
+    // 이미 그 상담의 조건 그대로라 "이전 조건이 있어요" 되묻지 않고 곧장 채팅으로.
+    const resumed = new URLSearchParams(window.location.search).has("resume");
     // 두 하위 에이전트 모두가 요구하는 조건이 다 채워져 있으면 바로 시작할지
     // 물어보고(picker), 아니면 곧장 폼으로 보낸다.
-    if (isIntegratedProfileComplete(p)) {
+    if (resumed && isIntegratedProfileComplete(p)) {
+      setEntryStep("chat");
+    } else if (isIntegratedProfileComplete(p)) {
       setEntryStep("picker");
     } else {
       setFormOrigin(null);
@@ -213,14 +218,22 @@ export function ChatWindow() {
    * 하기 때문. 라우터의 프로필 캐시가 있긴 하지만 브라우저 새로고침·재접속
    * 상황에서 프로필이 유실되지 않도록 프론트를 source of truth 로 유지한다.
    */
-  function sendMessage(text: string, profileOverride?: UserProfile | null) {
+  function sendMessage(
+    text: string,
+    profileOverride?: UserProfile | null,
+    opts?: { silent?: boolean },
+  ) {
     const trimmed = text.trim();
     if (!trimmed || chat.isPending) return;
 
-    setMessages((cur) => [
-      ...cur,
-      { role: "user", blocks: [{ type: "text", content: trimmed }] },
-    ]);
+    // silent: 사용자가 직접 쓴 문장이 아니라 프론트가 자동 조합한 지시문(예:
+    // profile_ask 답변 반영 요청)이라 채팅 버블로는 보여주지 않는다.
+    if (!opts?.silent) {
+      setMessages((cur) => [
+        ...cur,
+        { role: "user", blocks: [{ type: "text", content: trimmed }] },
+      ]);
+    }
     setInput("");
 
     const nextProfile = profileOverride ?? profile;
@@ -246,15 +259,34 @@ export function ChatWindow() {
     patch: Partial<UserProfile>,
     fields: ProfileAskField[],
   ) {
+    if (patch.dynamicGateAnswers) {
+      // mergeProfile은 {...current, ...patch} 얕은 병합이라, patch.dynamicGateAnswers를
+      // 그대로 넘기면 이전에 쌓인 답변 전체를 이번 turn 응답으로 덮어써버린다 —
+      // 호출 전에 직접 깊merge해서 기존 답변이 안 날아가게 한다.
+      patch = {
+        ...patch,
+        dynamicGateAnswers: {
+          ...(profile?.dynamicGateAnswers ?? {}),
+          ...patch.dynamicGateAnswers,
+        },
+      };
+    }
     const merged = mergeProfile(patch);
     if (merged) setProfile(merged);
     const answerText =
       "추가 정보를 반영해서 자산관리 로드맵을 다시 만들어줘. 제공된 정보: " +
       fields
-        .map((f) => `${f.label}=${(patch as Record<string, unknown>)[f.key] ?? "-"}`)
+        .map((f) => {
+          const value = f.isDynamicGate
+            ? patch.dynamicGateAnswers?.[f.key]
+            : (patch as Record<string, unknown>)[f.key];
+          return `${f.label}=${value ?? "-"}`;
+        })
         .join(", ");
     // 병합된 프로필을 즉시 실어보내기 위해 override 로 넘김 (setState 반영 지연 회피).
-    sendMessage(answerText, merged);
+    // 사용자가 직접 친 문장이 아니라 프론트가 자동 조합한 지시문이라, 채팅
+    // 버블로는 보여주지 않고(silent) 백엔드에만 보낸다.
+    sendMessage(answerText, merged, { silent: true });
   }
 
   function onSubmit(e: React.FormEvent) {
@@ -299,17 +331,34 @@ export function ChatWindow() {
   }
 
   /** 통합 프로필 폼 제출 콜백 — 저장 후 대화 시작(또는 이어서). */
-  function onIntegratedProfileSubmit(next: UserProfile, nickname?: string) {
-    saveProfile(next);
-    setProfile(next);
-    pendingNicknameRef.current = nickname;
+  function onIntegratedProfileSubmit(rawNext: UserProfile, nickname?: string) {
     // "조건 재입력"(대화 중)은 같은 상담을 이어가는 것 — threadId 그대로.
     // picker의 "조건 입력하기" 또는 캐시 없는 첫 진입은 새 상담 시작 — 새 threadId.
     let activeThreadId = threadId;
-    if (formOrigin !== "chat") {
+    const isNewConsultation = formOrigin !== "chat";
+    if (isNewConsultation) {
       activeThreadId = startNewConsultationThread();
       setThreadId(activeThreadId);
     }
+    // 같은 브라우저를 다른 사람이 쓸 수도 있다 — "이어서 상담하기"가 아닌
+    // 새 상담 시작(=새 threadId)이면, 이전 상담에서 AI가 되물어 채운
+    // 값(financialIncomeTaxed 등)이 IntegratedProfileForm의 `initial` 스프레드로
+    // 조용히 따라와선 안 된다. 온보딩 폼에서 직접 묻지 않는 필드라 여기서
+    // 명시적으로 지운다 — 필요하면 새 상담에서 다시 물어보게.
+    const next: UserProfile = isNewConsultation
+      ? {
+          ...rawNext,
+          financialIncomeTaxed: null,
+          isSmeEmployee: null,
+          householdMonthlyIncome: null,
+          previousAnnualIncome: null,
+          // 동적 자격조건 게이트 답변도 같은 이유로 새 상담엔 안 물려준다.
+          dynamicGateAnswers: {},
+        }
+      : rawNext;
+    saveProfile(next);
+    setProfile(next);
+    pendingNicknameRef.current = nickname;
     setEntryStep("chat");
     initialRoadmapRequestedRef.current = true;
     requestInitialRoadmap(next, activeThreadId);
@@ -399,6 +448,14 @@ export function ChatWindow() {
           >
             <Settings2 size={15} />
             조건 입력하기
+          </button>
+          <button
+            type="button"
+            onClick={onReset}
+            title="저장된 조건(생년월일·소득 등)만 지웁니다. '내 로드맵' 상담 이력은 그대로 남아요."
+            className="mt-1 text-[11px] text-slate-400 hover:text-rose-600 hover:underline"
+          >
+            이전 조건 삭제
           </button>
         </div>
         <div className="mt-6 pt-5 border-t border-slate-100 text-left">
