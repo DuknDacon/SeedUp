@@ -222,10 +222,14 @@ async def _run_tool_calls(state: RouterState) -> dict[str, Any]:
 
         try:
             if name == "ask_policy_agent":
+                # Policy-Agent 는 roadmap 과 달리 매 질문마다 프로필이 필수는
+                # 아니지만, 프로필 자체는 있으면 매번 그대로 실어보낸다 — 한 번
+                # 전달했다고 이후 None 으로 바꿔치면 개인화 질문마다 폴백 폼
+                # (profile_ask) 이 다시 뜨는 버그가 생긴다.
                 blocks, profile_sent = await call_policy_agent(
                     thread_id=state["policy_thread_id"],
                     message=query,
-                    profile=None if delivered_policy else profile,
+                    profile=profile,
                 )
                 summary = f"[정책 매칭] {len(blocks)} block(s) 수신"
                 return {
@@ -307,10 +311,9 @@ async def _run_tool_calls(state: RouterState) -> dict[str, Any]:
         )
         collected.extend(r["blocks"])
         # profile_delivered 는 "실제로 BenefitUp 에 프로필을 실어보냈는지" 를
-        # 뜻한다 (플래그 자체가 아니라). 프로필이 없어 익명 요청으로 보낸
-        # 턴까지 "전달됨"으로 표시하면, 이후 사용자가 profile_ask 폼을 채워도
-        # 위의 `profile=None if delivered_policy else profile` 때문에 영원히
-        # profile 을 못 보내게 되는 버그가 생긴다.
+        # 뜻한다 (플래그 자체가 아니라). policy 쪽은 이제 이 플래그로 profile
+        # 전달 여부를 가리지 않으므로(위 ask_policy_agent 분기 참고) 진단/기록
+        # 목적으로만 갱신한다.
         if r["flags"].get("policy") and r["flags"].get("profile_delivered") and not delivered_policy:
             updates["profile_delivered_policy"] = True
         if r["flags"].get("roadmap") and not delivered_roadmap:
