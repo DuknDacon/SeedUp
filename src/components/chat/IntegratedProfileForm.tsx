@@ -21,27 +21,14 @@ import type {
   MaritalStatus,
   UserProfile,
 } from "@/types/api";
+import {
+  EMPLOYMENT_TYPES,
+  HOUSING_OPTIONS,
+  MARRIAGE_OPTIONS,
+  STEP_META,
+} from "@/lib/profileFieldMeta";
+import { ProfileSummaryCard } from "./ProfileSummaryCard";
 import { RegionSearchSelect } from "./RegionSearchSelect";
-
-const EMPLOYMENT_TYPES: EmploymentType[] = [
-  "근로자",
-  "사업자",
-  "연금소득자",
-  "채무조정자",
-  "무직",
-  "학생",
-];
-const MARRIAGE: { value: MaritalStatus; label: string }[] = [
-  { value: "single", label: "미혼" },
-  { value: "married", label: "기혼" },
-];
-const HOUSING: { value: HousingStatus; label: string }[] = [
-  { value: "with_parents", label: "부모님과 거주" },
-  { value: "rental", label: "월세" },
-  { value: "monthly", label: "반전세" },
-  { value: "jeonse", label: "전세" },
-  { value: "own", label: "자가" },
-];
 
 /**
  * 프로필이 통합 상담을 시작하기에 충분한지 검사.
@@ -95,12 +82,16 @@ function monthsFromToday(value: string): number {
 export function IntegratedProfileForm({
   initial,
   initialNickname,
+  initialStep,
   onSubmit,
   onCancel,
 }: {
   initial: UserProfile | null;
   /** "내 로드맵" 이력 목록에서 이 상담을 구분할 별명의 초기값(재입력 시). */
   initialNickname?: string;
+  /** 특정 단계부터 열고 싶을 때(예: 채팅 화면의 "현재 조건" 요약에서 특정 항목만
+   * 고치려고 들어온 경우). 생략하면 0단계(기본 정보)부터 시작. */
+  initialStep?: number;
   onSubmit: (profile: UserProfile, nickname?: string) => void;
   /** 이미 프로필이 완성돼 있어서 이 폼이 "재입력"인 경우에만 노출. 첫 진입엔 undefined. */
   onCancel?: () => void;
@@ -169,12 +160,28 @@ export function IntegratedProfileForm({
 
   const [err, setErr] = useState<string | null>(null);
   // 퀴즈처럼 한 단계씩 진행 — 최종 검증은 그대로 submitProfile(3단계 제출)에서만 수행.
-  const [step, setStep] = useState(0);
-  const STEP_META = [
-    { title: "기본 정보" },
-    { title: "기능① 정책 매칭 조건" },
-    { title: "기능② 자산관리 로드맵 조건" },
-  ] as const;
+  const [step, setStep] = useState(initialStep ?? 0);
+
+  // 오른쪽 실시간 요약 카드용 — 현재 입력 상태를 그대로 반영한 draft. 저장하기
+  // 전이라 UserProfile 타입 검증(submitProfile)은 거치지 않은 표시 전용 값이다.
+  const draftProfile: Partial<UserProfile> = {
+    birthDate,
+    region,
+    annualIncomeKrw:
+      incomeManwon.trim() === "" ? null : Math.round(Number(incomeManwon) * 10_000),
+    householdSize: householdSize.trim() === "" ? null : Number(householdSize),
+    employmentType: employment,
+    maritalStatus: marriage,
+    housingStatus: housing,
+    monthlyBudget:
+      monthlyBudgetManwon.trim() === "" ? null : Math.round(Number(monthlyBudgetManwon) * 10_000),
+    targetDate,
+    hasEmergencyFund: hasEmergencyFund === "" ? null : hasEmergencyFund === "true",
+    targetAmount:
+      targetAmountManwon.trim() === "" ? null : Math.round(Number(targetAmountManwon) * 10_000),
+    riskLevel,
+    investmentCap: investmentCap.trim() === "" ? null : Number(investmentCap),
+  };
 
   function goNext() {
     setErr(null);
@@ -289,6 +296,7 @@ export function IntegratedProfileForm({
   }
 
   return (
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-5 items-start">
     <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
       {/* 진행 표시 — 퀴즈처럼 한 단계씩 */}
       <div className="flex items-center gap-2">
@@ -413,7 +421,7 @@ export function IntegratedProfileForm({
               onChange={(e) => setMarriage(e.target.value as MaritalStatus)}
               className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             >
-              {MARRIAGE.map((m) => (
+              {MARRIAGE_OPTIONS.map((m) => (
                 <option key={m.value} value={m.value}>
                   {m.label}
                 </option>
@@ -426,7 +434,7 @@ export function IntegratedProfileForm({
               onChange={(e) => setHousing(e.target.value as HousingStatus)}
               className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             >
-              {HOUSING.map((h) => (
+              {HOUSING_OPTIONS.map((h) => (
                 <option key={h.value} value={h.value}>
                   {h.label}
                 </option>
@@ -564,6 +572,8 @@ export function IntegratedProfileForm({
         )}
       </div>
     </form>
+    <ProfileSummaryCard profile={draftProfile} activeStep={step} />
+    </div>
   );
 }
 

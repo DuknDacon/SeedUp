@@ -11,7 +11,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Bot, MessageCircle, Settings2, Sparkles } from "lucide-react";
+import {
+  Bot,
+  ChevronDown,
+  ChevronUp,
+  MessageCircle,
+  Settings2,
+  Sparkles,
+} from "lucide-react";
 import { sendChat } from "@/services/chatApi";
 import {
   clearProfile,
@@ -28,8 +35,10 @@ import {
   type RoadmapHistoryEntry,
 } from "@/lib/roadmapHistory";
 import type { ChatBlock, ProfileAskField, UserProfile } from "@/types/api";
+import { STEP_META } from "@/lib/profileFieldMeta";
 import { ChatBlockRenderer } from "./ChatBlockRenderer";
 import { ConditionSlider } from "@/components/roadmap/ConditionSlider";
+import { ProfileSummaryCard } from "./ProfileSummaryCard";
 import {
   IntegratedProfileForm,
   isIntegratedProfileComplete,
@@ -79,6 +88,13 @@ export function ChatWindow() {
   // form 화면의 "취소"가 어디로 돌아갈지 — picker 에서 왔으면 picker로, 채팅 중
   // "조건 재입력"으로 왔으면 chat으로, 캐시 없이 처음 들어온 거면 취소 불가.
   const [formOrigin, setFormOrigin] = useState<"picker" | "chat" | null>(null);
+  // "현재 조건" 요약의 특정 줄을 눌러 들어왔을 때만 값이 있음 — 그 필드가 속한
+  // 단계로 폼을 바로 연다. 상단 "조건 재입력" 버튼으로 들어오면 undefined(1단계부터).
+  const [formInitialStep, setFormInitialStep] = useState<number | undefined>(undefined);
+  const [showConditions, setShowConditions] = useState(false);
+  // profile_ask 가 몇 번째 "추가 질문 라운드"인지 — 온보딩 3단계에 이어지는
+  // 번호(4, 5, 6…)로 표시해 AI가 대화 중 판단해 추가한 질문임을 구분하기 위함.
+  const [profileAskRounds, setProfileAskRounds] = useState(0);
   const [latestHistoryEntry, setLatestHistoryEntry] = useState<RoadmapHistoryEntry | null>(
     null,
   );
@@ -131,6 +147,9 @@ export function ChatWindow() {
     mutationFn: sendChat,
     onSuccess: (res) => {
       setMessages((cur) => [...cur, { role: "assistant", blocks: res.blocks }]);
+      if (res.blocks.some((b) => b.type === "profile_ask")) {
+        setProfileAskRounds((n) => n + 1);
+      }
       // 라우터/하위 에이전트가 프로필을 조정했으면 (예: Roadmap-Agent 의
       // requestPatch) localStorage 를 병합 갱신해 다음 turn 부터 반영.
       if (res.profilePatch && Object.keys(res.profilePatch).length > 0) {
@@ -241,6 +260,13 @@ export function ChatWindow() {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     sendMessage(input);
+  }
+
+  /** "현재 조건" 요약의 특정 줄 클릭 — 그 필드가 속한 단계로 폼을 바로 연다. */
+  function openConditionEditor(step: number) {
+    setFormOrigin("chat");
+    setFormInitialStep(step);
+    setEntryStep("form");
   }
 
   function onReset() {
@@ -366,6 +392,7 @@ export function ChatWindow() {
             type="button"
             onClick={() => {
               setFormOrigin("picker");
+              setFormInitialStep(undefined);
               setEntryStep("form");
             }}
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition"
@@ -400,7 +427,7 @@ export function ChatWindow() {
   // 같은 폼을 재사용하되, 취소 시 각각 원래 있던 화면(picker/chat)으로 돌아간다.
   if (entryStep === "form") {
     return (
-      <div className="max-w-3xl mx-auto rounded-xl border bg-white p-5">
+      <div className="max-w-4xl mx-auto rounded-xl border bg-white p-5">
         <div className="flex items-center mb-3">
           <span className="w-10 h-10 grid place-items-center bg-brand-100 text-brand-700 rounded-md mr-3">
             <Settings2 size={21} />
@@ -418,6 +445,7 @@ export function ChatWindow() {
         </div>
         <IntegratedProfileForm
           initial={profile}
+          initialStep={formInitialStep}
           onSubmit={onIntegratedProfileSubmit}
           onCancel={
             formOrigin === "chat"
@@ -453,6 +481,7 @@ export function ChatWindow() {
             type="button"
             onClick={() => {
               setFormOrigin("chat");
+              setFormInitialStep(undefined);
               setEntryStep("form");
             }}
             title="저장된 조건을 다시 입력합니다"
@@ -483,6 +512,20 @@ export function ChatWindow() {
             새 대화
           </button>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setShowConditions((s) => !s)}
+          className="flex items-center justify-between px-4 py-2 border-b text-[11px] font-semibold text-slate-500 hover:bg-slate-50"
+        >
+          현재 조건 보기
+          {showConditions ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+        </button>
+        {showConditions && (
+          <div className="border-b px-3 py-3">
+            <ProfileSummaryCard profile={profile} onEditStep={openConditionEditor} />
+          </div>
+        )}
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 && (
@@ -559,6 +602,7 @@ export function ChatWindow() {
                 block={b}
                 onSuggestionClick={sendMessage}
                 onProfileAsk={onProfileAskSubmit}
+                profileAskStepNumber={STEP_META.length + profileAskRounds}
               />
             ))}
           </div>

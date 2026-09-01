@@ -18,12 +18,15 @@ export function ChatBlockRenderer({
   block,
   onSuggestionClick,
   onProfileAsk,
+  profileAskStepNumber,
 }: {
   block: ChatBlock;
   /** suggested_replies 블록의 chip 클릭 시 그 문장을 그대로 다음 turn 으로 전송 */
   onSuggestionClick?: (text: string) => void;
   /** profile_ask 블록의 미니 폼 제출 콜백. 부모(ChatWindow)가 profile 병합 + 다음 turn 발송 담당. */
   onProfileAsk?: (patch: Partial<UserProfile>, fields: ProfileAskField[]) => void;
+  /** profile_ask 블록에 표시할, 온보딩 1~3단계에 이어지는 번호. */
+  profileAskStepNumber?: number;
 }) {
   switch (block.type) {
     case "text":
@@ -56,6 +59,7 @@ export function ChatBlockRenderer({
         <ProfileAskForm
           context={block.context}
           fields={block.fields}
+          stepNumber={profileAskStepNumber}
           onSubmit={onProfileAsk}
         />
       );

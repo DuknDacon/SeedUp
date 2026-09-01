@@ -9,15 +9,21 @@
 "use client";
 
 import { useState } from "react";
+import { Sparkles } from "lucide-react";
 import type { ProfileAskField, UserProfile } from "@/types/api";
 
 export function ProfileAskForm({
   context,
   fields,
+  stepNumber,
   onSubmit,
 }: {
   context: "roadmap" | "policy";
   fields: ProfileAskField[];
+  /** 온보딩 1~3단계에 이어지는 번호(4, 5, 6…)로 표시 — 이 질문이 고정된
+   * 온보딩 단계가 아니라 AI가 대화 중 DB 매칭 결과를 보고 실시간으로 판단해
+   * 추가한 질문임을 시각적으로 구분하기 위함. */
+  stepNumber?: number;
   onSubmit?: (patch: Partial<UserProfile>, fields: ProfileAskField[]) => void;
 }) {
   const [values, setValues] = useState<Record<string, string>>({});
@@ -56,6 +62,17 @@ export function ProfileAskForm({
       onSubmit={handleSubmit}
       className="mt-2 rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-sm"
     >
+      <div className="mb-2 flex items-center gap-2">
+        {stepNumber != null && (
+          <span className="w-6 h-6 flex-shrink-0 rounded-full grid place-items-center text-[11px] font-bold bg-violet-600 text-white">
+            {stepNumber}
+          </span>
+        )}
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-700 bg-violet-100 rounded-full px-2 py-0.5">
+          <Sparkles size={10} />
+          AI가 대화로 판단해 추가한 질문
+        </span>
+      </div>
       <div className="mb-2 font-semibold text-amber-900">{heading}</div>
       <div className="space-y-2">
         {fields.map((f) => (
