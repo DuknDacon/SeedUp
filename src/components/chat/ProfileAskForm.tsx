@@ -5,12 +5,23 @@
  * 폼 제출 → 부모(ChatWindow)가 프로필 localStorage 를 병합 갱신하고
  * 다음 turn 을 자동 발송한다. 사용자가 다시 채팅에 문장을 쓰지 않아도
  * "필드 채웠으니 다시 시도해줘" 흐름이 자연스럽게 이어지도록 함.
+ *
+ * 한 라운드에 남은 질문이 많으면(최대 11~12개) 한 화면에 다 나열하지 않고
+ * CHUNK_SIZE개씩 끊어 보여준다("진짜 단계별"). 각 단계 제출은 그 단계에
+ * 보이는 질문의 답만 담아 실제 서버 호출(onSubmit)을 트리거한다 — 서버가
+ * 그 답을 반영해 다시 계산한 "남은 질문"(같은 상품이 그 답으로 이미
+ * 탈락했다면 그 상품의 나머지 게이트는 아예 빠진 채로)이 새 라운드로
+ * 돌아오고, ChatWindow가 새 profile_ask 블록으로 이 컴포넌트를 다시
+ * 마운트하면서 자연스럽게 "다음 단계"가 이어진다. 즉 새 백엔드 엔드포인트나
+ * 클라이언트 쪽 캐시 없이, 기존 라운드 매커니즘의 청크 크기만 줄인 것.
  */
 "use client";
 
 import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import type { ProfileAskField, UserProfile } from "@/types/api";
+
+const CHUNK_SIZE = 4;
 
 export function ProfileAskForm({
   context,
@@ -34,14 +45,21 @@ export function ProfileAskForm({
       ? "로드맵을 만들려면 이 정보가 필요해요"
       : "정책 매칭을 위해 이 정보가 필요해요";
 
+  // 서버가 내려준 순서 그대로, 앞에서부터 CHUNK_SIZE개만 이번 단계에서 보여준다.
+  const visibleFields = fields.slice(0, CHUNK_SIZE);
+  const remainingAfterThisStep = fields.length - visibleFields.length;
+  const allVisibleAnswered = visibleFields.every((f) => (values[f.key] ?? "").trim() !== "");
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (submitted) return;
+    if (submitted || !allVisibleAnswered) return;
 
     // 입력값을 필드의 inputType 에 맞춰 캐스팅해서 patch 로 만든다.
+    // 이번 단계에 보이는 필드(visibleFields)만 반영한다 — 아직 안 보여준
+    // 나머지는 다음 라운드(서버가 다시 계산해 돌려주는 다음 profile_ask)에서 묻는다.
     const patch: Partial<UserProfile> = {};
     const gateAnswers: Record<string, boolean> = {};
-    for (const f of fields) {
+    for (const f of visibleFields) {
       const raw = (values[f.key] ?? "").trim();
       if (!raw) continue;
       if (f.isDynamicGate) {
@@ -70,7 +88,7 @@ export function ProfileAskForm({
     }
     if (Object.keys(patch).length === 0) return;
     setSubmitted(true);
-    onSubmit?.(patch, fields);
+    onSubmit?.(patch, visibleFields);
   }
 
   return (
@@ -90,12 +108,17 @@ export function ProfileAskForm({
         </span>
       </div>
       <div className="mb-2 font-semibold text-amber-900">{heading}</div>
+      {remainingAfterThisStep > 0 && (
+        <p className="mb-2 text-[11px] font-medium text-violet-600">
+          이번 단계 {visibleFields.length}개 확인 후 남은 {remainingAfterThisStep}개를 이어서 물어볼게요.
+        </p>
+      )}
       <p className="mb-3 text-[11px] text-slate-500 leading-snug">
         💬 용어가 헷갈리면 왼쪽 채팅창에 편하게 물어보고, 답을 참고해서
         아래를 입력해도 돼요.
       </p>
       <div className="space-y-2">
-        {fields.map((f) => (
+        {visibleFields.map((f) => (
           <div key={f.key} className="flex flex-col gap-1">
             <label className="text-[12px] text-slate-700">{f.question}</label>
             {f.hint && (
@@ -113,8 +136,12 @@ export function ProfileAskForm({
                 <option value="" disabled>
                   선택해주세요
                 </option>
-                <option value="true">예</option>
-                <option value="false">아니오</option>
+                {/* "~이 없으신가요?" 같은 이중부정 질문에서 "예/아니오"만
+                    보여주면 답이 사실을 긍정하는 건지 질문 문장에 동의하는
+                    건지 헷갈리기 쉽다 — 위 질문 문장에 동의/부동의하는
+                    것임을 문장으로 명확히 한다. */}
+                <option value="true">네, 맞아요</option>
+                <option value="false">아니요, 아니에요</option>
               </select>
             ) : (
               <input
@@ -135,10 +162,14 @@ export function ProfileAskForm({
       <div className="mt-3 flex items-center justify-end gap-2">
         <button
           type="submit"
-          disabled={submitted}
+          disabled={submitted || !allVisibleAnswered}
           className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
         >
-          {submitted ? "전송됨" : "저장하고 다시 시도"}
+          {submitted
+            ? "전송됨"
+            : remainingAfterThisStep > 0
+              ? "다음 단계로"
+              : "저장하고 다시 시도"}
         </button>
       </div>
     </form>
