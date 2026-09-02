@@ -157,16 +157,25 @@ export function ChatWindow() {
       }
       // 라우터/하위 에이전트가 프로필을 조정했으면 (예: Roadmap-Agent 의
       // requestPatch) localStorage 를 병합 갱신해 다음 turn 부터 반영.
+      let latestProfile = profile;
       if (res.profilePatch && Object.keys(res.profilePatch).length > 0) {
         const merged = mergeProfile(res.profilePatch);
-        if (merged) setProfile(merged);
+        if (merged) {
+          setProfile(merged);
+          latestProfile = merged;
+        }
       }
       // "내 로드맵" 이력에 이번 상담을 upsert(같은 threadId면 갱신, 아니면 새 항목).
       const roadmapBlock = res.blocks.find(
         (b): b is Extract<ChatBlock, { type: "roadmap_plan" }> =>
           b.type === "roadmap_plan",
       );
-      if (roadmapBlock && profile) {
+      if (roadmapBlock && latestProfile) {
+        // 위에서 막 병합한 latestProfile을 써야 한다 — setProfile은 비동기라
+        // 클로저에 잡힌 이전 profile 변수를 그대로 쓰면, 이번 턴에 막 답한
+        // 자격조건(동적 게이트 등)이 이력에는 반영되지 않은 채로 저장된다.
+        // 그러면 "이어서 상담하기"로 돌아왔을 때 그 답변이 없는 예전 프로필로
+        // 다시 시작해, 이미 끝냈던 추가질문이 처음부터 다시 뜨는 것처럼 보인다.
         const entry: RoadmapHistoryEntry = {
           threadId,
           nickname: pendingNicknameRef.current,
@@ -174,13 +183,13 @@ export function ChatWindow() {
           goalRate: roadmapBlock.plan.recommended.goalRate ?? null,
           generatedAt: roadmapBlock.plan.generatedAt,
           profileSummary: {
-            age: profile.age,
-            region: profile.region,
-            monthlyBudget: profile.monthlyBudget,
-            targetAmount: profile.targetAmount,
-            targetDate: profile.targetDate,
+            age: latestProfile.age,
+            region: latestProfile.region,
+            monthlyBudget: latestProfile.monthlyBudget,
+            targetAmount: latestProfile.targetAmount,
+            targetDate: latestProfile.targetDate,
           },
-          profile,
+          profile: latestProfile,
         };
         upsertRoadmapHistoryEntry(entry);
         setLatestHistoryEntry(entry);
