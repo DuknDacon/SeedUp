@@ -431,12 +431,18 @@ export function ChatWindow() {
         <span className="w-12 h-12 mx-auto grid place-items-center bg-brand-100 text-brand-700 rounded-full mb-4">
           <Bot size={22} />
         </span>
+        {/* "내 로드맵"(완료된 상담 이력)과 이 화면(저장된 프로필값)은 서로 다른
+            localStorage 키를 본다 — 온보딩 폼만 채우고 로드맵을 끝까지 못
+            받은 세션도 프로필은 남는다. latestHistoryEntry가 없을 때 "이전에
+            입력한 조건이 있어요"라고 하면 "내 로드맵엔 이력이 없다더니 왜
+            여긴 있다는 거야"처럼 모순돼 보인다는 실사용자 피드백으로,
+            완료된 상담이 실제로 있을 때만 "이전" 표현을 쓴다. */}
         <h2 className="text-base font-semibold text-slate-900 mb-1">
-          이전에 입력한 조건이 있어요
+          {latestHistoryEntry ? "이전에 입력한 조건이 있어요" : "저장된 조건이 있어요"}
         </h2>
         <p className="text-xs text-slate-500 mb-6">
           {profile?.age}세 · {profile?.employmentType} 조건으로 바로 상담을
-          이어가거나, 조건을 다시 입력할 수 있어요.
+          {latestHistoryEntry ? " 이어가거나" : " 시작하거나"}, 조건을 다시 입력할 수 있어요.
         </p>
         {latestHistoryEntry && (
           <div className="mb-5 rounded-lg bg-sprout-50 border border-sprout-100 px-3 py-2.5 text-left">
@@ -458,7 +464,7 @@ export function ChatWindow() {
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition"
           >
             <MessageCircle size={15} />
-            이전 조건으로 상담하기
+            {latestHistoryEntry ? "이전 조건으로 상담하기" : "저장된 조건으로 상담 시작하기"}
           </button>
           <button
             type="button"
