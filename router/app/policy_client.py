@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import os
 import re
 import time
@@ -16,6 +17,12 @@ import httpx
 
 BENEFIT_API = os.getenv("BENEFIT_API", "http://localhost:8010")
 BENEFIT_TIMEOUT = float(os.getenv("BENEFIT_TIMEOUT", "60"))
+# BenefitUp-Agent 가 동일 요청에도 매번 다른 실패 양상을 보이는 게 관찰됐다
+# (담당 레포가 달라 원인 자체는 우리가 고칠 수 없음) — 타임아웃/연결 끊김/5xx
+# 같은 일시적 실패는 우리 쪽에서 짧게 한 번 더 시도해 완화한다. 요청 자체가
+# 잘못된 4xx(예: 422)는 재시도해도 같은 결과라 대상에서 제외한다.
+BENEFIT_MAX_ATTEMPTS = int(os.getenv("BENEFIT_MAX_ATTEMPTS", "2"))
+BENEFIT_RETRY_BACKOFF_SECONDS = float(os.getenv("BENEFIT_RETRY_BACKOFF_SECONDS", "0.6"))
 
 
 # ============================================================
@@ -257,14 +264,43 @@ async def call_policy_agent(
         f"[R-HTTP →] POST {url} (thread={thread_id[:8]}.. profile={'y' if adapted else 'n'} msg_len={len(message)})"
     )
     t0 = time.monotonic()
-    async with httpx.AsyncClient(timeout=BENEFIT_TIMEOUT) as c:
-        r = await c.post(url, json=payload)
-        elapsed = time.monotonic() - t0
-        if r.status_code >= 400:
-            print(f"[R-HTTP ←] {r.status_code} in {elapsed:.2f}s | body={r.text[:200]!r}")
-        r.raise_for_status()
-        data = r.json()
+    r = await _post_policy_with_retry(url, payload)
+    elapsed = time.monotonic() - t0
+    data = r.json()
 
     blocks = data.get("blocks") or []
     print(f"[R-HTTP ←] {r.status_code} in {elapsed:.2f}s | blocks={len(blocks)}")
     return blocks, adapted is not None
+
+
+async def _post_policy_with_retry(url: str, payload: dict[str, Any]) -> httpx.Response:
+    """일시적 실패(타임아웃/연결 오류/5xx)만 짧게 재시도하고, 잘못된 요청(4xx)은
+    바로 실패시킨다 — 같은 페이로드로 다시 보내도 4xx는 똑같이 나서 의미가
+    없다. BenefitUp 쪽 원인 자체(레포가 달라 코드로 못 고침)는 그대로 두고,
+    "한 번 실패하면 그 turn 전체가 죽는" 라우터 쪽 취약점만 완화한다.
+    """
+    last_exc: Exception | None = None
+    for attempt in range(1, BENEFIT_MAX_ATTEMPTS + 1):
+        try:
+            async with httpx.AsyncClient(timeout=BENEFIT_TIMEOUT) as c:
+                r = await c.post(url, json=payload)
+        except (httpx.TimeoutException, httpx.TransportError) as exc:
+            last_exc = exc
+            if attempt < BENEFIT_MAX_ATTEMPTS:
+                print(f"[R-HTTP ⟳] {type(exc).__name__} 재시도 {attempt}/{BENEFIT_MAX_ATTEMPTS}")
+                await asyncio.sleep(BENEFIT_RETRY_BACKOFF_SECONDS)
+                continue
+            raise
+        if r.status_code >= 500 and attempt < BENEFIT_MAX_ATTEMPTS:
+            print(
+                f"[R-HTTP ⟳] {r.status_code} 재시도 {attempt}/{BENEFIT_MAX_ATTEMPTS} | "
+                f"body={r.text[:200]!r}"
+            )
+            await asyncio.sleep(BENEFIT_RETRY_BACKOFF_SECONDS)
+            continue
+        if r.status_code >= 400:
+            print(f"[R-HTTP ←] {r.status_code} | body={r.text[:200]!r}")
+        r.raise_for_status()
+        return r
+    assert last_exc is not None  # 루프는 항상 return 또는 raise로 끝남
+    raise last_exc

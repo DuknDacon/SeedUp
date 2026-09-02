@@ -163,7 +163,14 @@ export type LoanRateOption = {
 //   대화 중간에 자연스럽게 끼어들고, 기능②로 화제가 넘어가면 roadmap_plan 블록이
 //   같은 자리에 나타나면 된다.
 
-export type ChatRequest = components["schemas"]["ChatRequestIn"];
+export type ChatRequest = components["schemas"]["ChatRequestIn"] & {
+  /** 이번 turn이 profile_ask(로드맵 미확인 필드/동적 게이트) 답변 제출인지 표시.
+   * true면 라우터가 Roadmap-Agent에 이 신호를 그대로 전달해, 사용자 원문
+   * 의도와 무관하게 남은 게이트부터 재확인하게 한다(router/app/schemas.py 참고).
+   * ChatRequestIn은 BenefitUp-Agent OpenAPI에서 생성된 타입이라 이 필드가
+   * 없어 여기서 별도로 확장한다. */
+  isMissingFieldAnswer?: boolean;
+};
 export type ChatSource = components["schemas"]["ChatSourceOut"];
 
 /** 백엔드(api/app.py)가 실제로 지금 채워서 내려주는 블록 — text / sources / sql_table.

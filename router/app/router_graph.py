@@ -58,6 +58,11 @@ class RouterState(TypedDict):
     # 로드맵 계산 결과 캐시 (임시 브릿지용 — roadmap 대화형 API 가 붙으면 제거).
     last_roadmap_plan: dict[str, Any] | None
 
+    # 이번 turn이 profile_ask(로드맵 미확인 필드/동적 게이트) 답변 제출인지 —
+    # /api/chat 이 그대로 실어보낸 신호. Roadmap-Agent의 사전 체크 게이트 판단에
+    # 쓰인다(roadmap_client.call_roadmap_agent 참고).
+    answering_missing_fields: bool
+
     # 이번 turn 에 하위 에이전트가 돌려준 ChatBlock 들 (dict 원본).
     # agent_node 가 최종 응답에 실어 프론트로 relay.
     collected_blocks: list[dict[str, Any]]
@@ -148,6 +153,14 @@ ROUTER_SYSTEM_PROMPT = """당신은 SeedUp 통합 상담의 라우터입니다.
    "이거"/"이 상품" 같은 대명사는 항상 대화에서 **가장 최근에 다룬 화제**를
    가리킵니다. 사용자가 명확히 새로운 화제(다른 카테고리)를 물어볼 때만
    과감히 다른 툴로 스위치하세요.
+3-1. 직전 ToolMessage에 **"이번 turn에 아직 답변 대기 중인 질문"**이 적혀
+   있으면, 이번 사용자 turn이 그 질문에 대한 답처럼 보이는 경우(예/아니오,
+   숫자, 날짜, 짧은 사실 진술 등) **그 질문을 냈던 것과 같은 툴로 무조건
+   이어가세요.** 답변 문구 안에 "정책"/"지원금"/"자격"/"중소기업" 같은 다른
+   카테고리를 연상시키는 단어가 섞여 있어도 무시하세요 — 예를 들어 로드맵이
+   "현재 중소기업에 재직 중인가요?"를 물어봤는데 사용자가 "중소기업 재직 안
+   해요"라고 답하면, 이건 정책 질문이 아니라 **로드맵이 방금 물어본 질문에
+   대한 답**이므로 반드시 ask_roadmap_agent로 보내세요.
 4. 인사·잡담 등 어느 툴도 안 맞는 turn 이면 툴을 부르지 말고 짧게 한국어로
    답변하세요.
 5. 툴이 이미 실행되어 결과가 컨텍스트에 있으면 재요약하지 말고 **딱 한 줄**
@@ -203,6 +216,32 @@ def should_continue(state: RouterState) -> str:
     return "end"
 
 
+def _pending_question_hint(blocks: list[dict[str, Any]]) -> str:
+    """ToolMessage 요약에 이번 turn이 물어본 profile_ask 질문 문구를 그대로
+    실어보낸다.
+
+    이게 없으면(예전엔 "[로드맵] 1 block(s) 수신" 처럼 완전히 일반화된 요약만
+    남았다) 라우터 LLM은 다음 turn에 "직전에 이 툴이 정확히 뭘 물어봤는지"를
+    전혀 기억하지 못한 채 사용자 답변 텍스트의 표면 키워드만으로 툴을 다시
+    고른다 — "중소기업 재직 안 해요"처럼 정책 자격조건과 겹치는 단어가 섞인
+    답변이 실제로는 로드맵 쪽이 방금 물어본 질문에 대한 답인데도 ask_policy_agent
+    로 잘못 넘어가던 버그의 원인. 질문 문구를 요약에 남겨두면 LLM이 "이건 내가
+    막 물어본 질문에 대한 답이구나"를 인식하고 같은 툴로 이어갈 근거가 생긴다.
+    """
+    field_sources = [
+        b.get("fields") for b in blocks if b.get("type") == "profile_ask"
+    ]
+    questions = [
+        f.get("question", "")
+        for fields in field_sources
+        for f in (fields or [])
+        if f.get("question")
+    ]
+    if not questions:
+        return ""
+    return " | 이번 turn에 아직 답변 대기 중인 질문: " + " / ".join(questions)
+
+
 async def _run_tool_calls(state: RouterState) -> dict[str, Any]:
     """LLM 이 부른 툴들을 실제 HTTP 로 실행. 병렬 호출 지원."""
     last: AIMessage = state["messages"][-1]  # type: ignore[assignment]
@@ -214,6 +253,7 @@ async def _run_tool_calls(state: RouterState) -> dict[str, Any]:
     delivered_policy = state.get("profile_delivered_policy", False)
     delivered_roadmap = state.get("profile_delivered_roadmap", False)
     last_plan = state.get("last_roadmap_plan")
+    answering_missing_fields = state.get("answering_missing_fields", False)
 
     async def _run_one(tc: dict[str, Any]):
         name = tc.get("name")
@@ -232,7 +272,7 @@ async def _run_tool_calls(state: RouterState) -> dict[str, Any]:
                     message=query,
                     profile=profile,
                 )
-                summary = f"[정책 매칭] {len(blocks)} block(s) 수신"
+                summary = f"[정책 매칭] {len(blocks)} block(s) 수신" + _pending_question_hint(blocks)
                 return {
                     "tool_call_id": tcid,
                     "name": name,
@@ -252,13 +292,14 @@ async def _run_tool_calls(state: RouterState) -> dict[str, Any]:
                     profile=profile,
                     last_plan=last_plan,
                     is_first_call=not delivered_roadmap,
+                    answering_missing_fields=answering_missing_fields,
                 )
                 # roadmap_plan 블록이 새로 왔으면 캐시 갱신
                 new_plan = next(
                     (b.get("plan") for b in blocks if b.get("type") == "roadmap_plan"),
                     None,
                 )
-                summary = f"[로드맵] {len(blocks)} block(s) 수신"
+                summary = f"[로드맵] {len(blocks)} block(s) 수신" + _pending_question_hint(blocks)
                 return {
                     "tool_call_id": tcid,
                     "name": name,

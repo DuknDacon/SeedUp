@@ -59,6 +59,8 @@ class UserProfileIn(BaseModel):
     maritalStatus: str | None = None
     employed: bool | None = None
     isSmeEmployee: bool | None = None
+    financialIncomeTaxed: bool | None = None
+    householdMonthlyIncome: int | None = None
     monthlyTakeHome: int | None = None
     targetAmount: int | None = None
     hasEmergencyFund: bool | None = None
@@ -70,6 +72,12 @@ class ChatRequestIn(BaseModel):
     threadId: str
     message: str
     profile: UserProfileIn | None = None
+    # 이번 turn이 profile_ask(로드맵 미확인 필드/동적 게이트) 답변 제출인지
+    # 프론트가 명시적으로 표시. Roadmap-Agent의 사전 체크 게이트가 사용자 원문
+    # 의도와 무관하게 남은 게이트부터 재확인해야 하는지 판단하는 신호로 쓰인다
+    # (roadmap_client.py 참고) — question 텍스트만으로는 게이트 답변과 순수
+    # 불명확 요청을 구분할 수 없어 별도 필드로 받는다.
+    isMissingFieldAnswer: bool = False
 
 
 class ChatResponseOut(BaseModel):

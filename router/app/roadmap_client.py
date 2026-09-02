@@ -175,6 +175,7 @@ async def call_roadmap_agent(
     profile: dict[str, Any] | None,
     last_plan: dict[str, Any] | None = None,  # noqa: ARG001 — 계약 유지용
     is_first_call: bool = False,
+    answering_missing_fields: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
     """Roadmap-Agent 를 부르고 (ChatBlock 리스트, requestPatch) 를 돌려준다.
 
@@ -185,6 +186,13 @@ async def call_roadmap_agent(
         보여 `conversationIntent=unclear` 로 되묻히는 경우를 줄이기 위함.
         (라우터는 자기 관점에선 이어지는 대화지만, Roadmap-Agent 는 자기
         thread 에 이력이 없어 그 문맥이 없다.)
+    answering_missing_fields:
+        이번 turn이 profile_ask(미확인 자격조건 필드/동적 게이트) 답변 제출인지.
+        Roadmap-Agent가 사용자 원문 의도 분류와 무관하게 남은 게이트부터
+        재확인해야 하는지 판단하는 신호로 쓴다 — 이게 없으면 "왜 추천?"/금융
+        Q&A 처럼 게이트와 무관한 질문까지 매번 같은 미확인 필드 질문만 도는
+        버그와, 반대로 게이트 답변 제출을 일반 질문으로 오인해 남은 게이트를
+        건너뛰는 버그 둘 다 생길 수 있다.
 
     Returns:
         blocks: 프론트에 relay 할 ChatBlock dict 리스트.
@@ -220,7 +228,12 @@ async def call_roadmap_agent(
             "사용자 원문에 답해주세요. 되묻기 없이 진행해도 됩니다.]\n\n"
             f"사용자 원문: {message}"
         )
-    payload = _build_payload(profile, question=question, thread_id=thread_id)
+    payload = _build_payload(
+        profile,
+        question=question,
+        thread_id=thread_id,
+        answering_missing_fields=answering_missing_fields,
+    )
 
     url = f"{ROADMAP_API}/api/v1/roadmaps"
     print(
@@ -272,6 +285,7 @@ def _build_payload(
     *,
     question: str,
     thread_id: str,
+    answering_missing_fields: bool = False,
 ) -> dict[str, Any]:
     district = profile.get("regionDistrictCode") or profile.get("regionCode") or ""
     province = profile.get("regionProvinceCode") or (
@@ -311,6 +325,7 @@ def _build_payload(
         # "policy_id:gate_id" 합성 키 → 예/아니오. ProfileAskForm이 동적 게이트
         # 답변을 UserProfile.dynamicGateAnswers 에 모아두면 그대로 실어보낸다.
         "dynamicGateAnswers": profile.get("dynamicGateAnswers") or {},
+        "answeringMissingFields": answering_missing_fields,
     }
 
 

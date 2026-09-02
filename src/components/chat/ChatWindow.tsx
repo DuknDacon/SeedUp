@@ -221,7 +221,7 @@ export function ChatWindow() {
   function sendMessage(
     text: string,
     profileOverride?: UserProfile | null,
-    opts?: { silent?: boolean },
+    opts?: { silent?: boolean; isMissingFieldAnswer?: boolean },
   ) {
     const trimmed = text.trim();
     if (!trimmed || chat.isPending) return;
@@ -241,6 +241,7 @@ export function ChatWindow() {
       threadId,
       message: trimmed,
       profile: nextProfile ?? undefined,
+      isMissingFieldAnswer: opts?.isMissingFieldAnswer,
     });
   }
 
@@ -285,8 +286,11 @@ export function ChatWindow() {
         .join(", ");
     // 병합된 프로필을 즉시 실어보내기 위해 override 로 넘김 (setState 반영 지연 회피).
     // 사용자가 직접 친 문장이 아니라 프론트가 자동 조합한 지시문이라, 채팅
-    // 버블로는 보여주지 않고(silent) 백엔드에만 보낸다.
-    sendMessage(answerText, merged, { silent: true });
+    // 버블로는 보여주지 않고(silent) 백엔드에만 보낸다. isMissingFieldAnswer:
+    // 이 turn은 profile_ask 답변 제출이라는 신호를 실어보내, Roadmap-Agent가
+    // 이 문구("추가 정보를 반영해서...")를 불명확 요청으로 오인해 남은 게이트를
+    // 건너뛰지 않고 확실히 재확인하게 한다.
+    sendMessage(answerText, merged, { silent: true, isMissingFieldAnswer: true });
   }
 
   function onSubmit(e: React.FormEvent) {

@@ -94,6 +94,7 @@ def chat(req: ChatRequestIn) -> ChatResponseOut:
         "profile_delivered_policy": prior_state.get("profile_delivered_policy", False),
         "profile_delivered_roadmap": prior_state.get("profile_delivered_roadmap", False),
         "last_roadmap_plan": prior_state.get("last_roadmap_plan"),
+        "answering_missing_fields": req.isMissingFieldAnswer,
         "collected_blocks": [],
     }
 
