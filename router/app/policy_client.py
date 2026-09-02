@@ -274,17 +274,28 @@ async def call_policy_agent(
 
 
 async def _post_policy_with_retry(url: str, payload: dict[str, Any]) -> httpx.Response:
-    """일시적 실패(타임아웃/연결 오류/5xx)만 짧게 재시도하고, 잘못된 요청(4xx)은
-    바로 실패시킨다 — 같은 페이로드로 다시 보내도 4xx는 똑같이 나서 의미가
-    없다. BenefitUp 쪽 원인 자체(레포가 달라 코드로 못 고침)는 그대로 두고,
-    "한 번 실패하면 그 turn 전체가 죽는" 라우터 쪽 취약점만 완화한다.
+    """연결 오류/5xx 만 짧게 재시도한다. 이 두 케이스에선 첫 요청이 이미 완결된
+    상태(서버 미도달 or 명시적 실패 반환)라 재시도가 BenefitUp 에 새 부담을
+    주지 않는다 — 원 커밋의 취지("BenefitUp 쪽 코드는 못 고치니 라우터 쪽
+    취약점만 완화")가 정확히 성립하는 범위.
+
+    타임아웃과 4xx 는 재시도 대상에서 뺀다:
+    - 4xx: 같은 페이로드로 다시 보내도 결과 안 바뀜.
+    - 타임아웃: BenefitUp 이 여전히 처리 중이라는 뜻이라 재시도하면 같은
+      (threadId, message) 가 concurrent 로 두 번 처리된다 — sync `def chat()`
+      은 client 끊긴 뒤에도 완주하므로 Gemini 콜이 두 배로 나가고 MemorySaver
+      에 concurrent write 가 생긴다. 원 커밋의 취지("BenefitUp 에 새 부담 주지
+      말고 라우터 쪽 취약점만 완화")에 정면으로 위배되어 제외.
     """
     last_exc: Exception | None = None
     for attempt in range(1, BENEFIT_MAX_ATTEMPTS + 1):
         try:
             async with httpx.AsyncClient(timeout=BENEFIT_TIMEOUT) as c:
                 r = await c.post(url, json=payload)
-        except (httpx.TimeoutException, httpx.TransportError) as exc:
+        except httpx.TransportError as exc:
+            # 주의: httpx.TimeoutException 은 여기서 안 잡는다 (위 docstring 참고) —
+            # try 블록을 그대로 빠져나가 호출부로 raise 된다. TimeoutException 은
+            # HTTPError 자식이지 TransportError 자식이 아니라 이 분리가 성립한다.
             last_exc = exc
             if attempt < BENEFIT_MAX_ATTEMPTS:
                 print(f"[R-HTTP ⟳] {type(exc).__name__} 재시도 {attempt}/{BENEFIT_MAX_ATTEMPTS}")
