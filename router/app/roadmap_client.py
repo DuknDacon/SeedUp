@@ -284,6 +284,12 @@ async def call_roadmap_agent(
     else:
         if chat_reply:
             blocks.append({"type": "text", "content": chat_reply})
+        # 정책 자격 요약 — 예전엔 chat_reply 문장 하나에 조건을 다 이어붙였지만
+        # (가독성 나쁘다는 실사용자 피드백), 이제 Roadmap-Agent가 카드 단위로
+        # 구조화해서 보내준다. chat_reply는 짧은 완료 문구만 담고 있다.
+        eligibility_cards = data.get("policyEligibilityCards")
+        if eligibility_cards:
+            blocks.append({"type": "policy_eligibility_cards", "cards": eligibility_cards})
         # 전체 응답을 roadmap_plan 블록으로 통째 상재 → 프론트가 기존 렌더러 재사용.
         # 단, 순수 질의성 의도(financial_qa/unclear)는 추천 자체가 이번 turn에
         # 바뀌지 않았으므로 카드를 다시 안 보낸다 — 안 그러면 "참여기업이 뭐야?"

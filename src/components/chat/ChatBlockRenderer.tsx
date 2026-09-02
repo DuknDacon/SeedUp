@@ -12,6 +12,7 @@ import { SqlResultTable } from "@/features/policy/chat/SqlResultTable";
 import { RecommendationsBlockView } from "@/features/policy/chat/RecommendationsBlockView";
 import { RoadmapPlanBlock } from "@/features/roadmap/RoadmapPlanBlock";
 import { ProfileAskForm } from "./ProfileAskForm";
+import { PolicyEligibilityCards } from "./PolicyEligibilityCards";
 import { FormattedText } from "./FormattedText";
 
 export function ChatBlockRenderer({
@@ -53,6 +54,9 @@ export function ChatBlockRenderer({
 
     case "roadmap_plan":
       return <RoadmapPlanBlock plan={block.plan} />;
+
+    case "policy_eligibility_cards":
+      return <PolicyEligibilityCards cards={block.cards} />;
 
     case "profile_ask":
       return (

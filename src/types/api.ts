@@ -243,13 +243,29 @@ type ProfileAskBlock = {
   fields: ProfileAskField[];
 };
 
+/** 정책 자격 요약 카드 하나. Roadmap-Agent의 PolicyEligibilityCard와 1:1 대응. */
+export type PolicyEligibilityCard = {
+  policyId: string;
+  name: string;
+  tier: string;
+  availability: string;
+  qualificationStatus: string;
+  conditions: string[];
+};
+
+type PolicyEligibilityCardsBlock = {
+  type: "policy_eligibility_cards";
+  cards: PolicyEligibilityCard[];
+};
+
 export type ChatBlock =
   | GeneratedChatBlock
   | PolicyResultsBlock
   | LoanDetailBlock
   | RoadmapPlanBlock
   | SuggestedRepliesBlock
-  | ProfileAskBlock;
+  | ProfileAskBlock
+  | PolicyEligibilityCardsBlock;
 
 export type ChatResponse = {
   threadId: string;
