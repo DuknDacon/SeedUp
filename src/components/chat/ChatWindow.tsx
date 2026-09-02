@@ -264,11 +264,21 @@ export function ChatWindow() {
       // mergeProfile은 {...current, ...patch} 얕은 병합이라, patch.dynamicGateAnswers를
       // 그대로 넘기면 이전에 쌓인 답변 전체를 이번 turn 응답으로 덮어써버린다 —
       // 호출 전에 직접 깊merge해서 기존 답변이 안 날아가게 한다.
+      const labels: Record<string, string> = {};
+      for (const f of fields) {
+        if (f.isDynamicGate) labels[f.key] = f.question;
+      }
       patch = {
         ...patch,
         dynamicGateAnswers: {
           ...(profile?.dynamicGateAnswers ?? {}),
           ...patch.dynamicGateAnswers,
+        },
+        // "현재 저장된 조건" 요약 카드가 나중에 이 합성 키가 무슨 질문이었는지
+        // 보여줄 수 있도록, 답변과 같은 시점에 질문 문구도 같이 쌓아둔다.
+        dynamicGateLabels: {
+          ...(profile?.dynamicGateLabels ?? {}),
+          ...labels,
         },
       };
     }

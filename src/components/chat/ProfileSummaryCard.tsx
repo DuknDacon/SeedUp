@@ -15,6 +15,20 @@ import { ListChecks, Pencil } from "lucide-react";
 import type { UserProfile } from "@/types/api";
 import { PROFILE_FIELD_SUMMARY, STEP_META } from "@/lib/profileFieldMeta";
 
+/** dynamicGateAnswers는 "policyId:gateId" 합성 키라 PROFILE_FIELD_SUMMARY의
+ * 고정 필드 목록에 넣을 수 없다 — 상품마다 다른 키가 대화 중에 동적으로
+ * 생긴다. 같은 시점에 저장해둔 dynamicGateLabels에서 질문 문구를 찾아
+ * 보여주고, 옛 프로필처럼 라벨이 없으면 원본 키라도 보여준다. */
+function dynamicGateEntries(profile: Partial<UserProfile> | null) {
+  const answers = profile?.dynamicGateAnswers ?? {};
+  const labels = profile?.dynamicGateLabels ?? {};
+  return Object.entries(answers).map(([key, value]) => ({
+    key,
+    label: labels[key] ?? key,
+    value,
+  }));
+}
+
 export function ProfileSummaryCard({
   profile,
   activeStep,
@@ -71,6 +85,26 @@ export function ProfileSummaryCard({
             </ul>
           </div>
         ))}
+        {dynamicGateEntries(profile).length > 0 && (
+          <div>
+            <div className="text-[11px] font-semibold mb-1 text-slate-400">
+              상품별 추가 자격조건
+            </div>
+            <ul className="space-y-0.5">
+              {dynamicGateEntries(profile).map((entry) => (
+                <li
+                  key={entry.key}
+                  className="flex items-start justify-between gap-2 text-xs px-1.5 py-1 rounded-md"
+                >
+                  <span className="text-slate-500">{entry.label}</span>
+                  <span className="font-medium text-slate-800 flex-shrink-0">
+                    {entry.value ? "예" : "아니오"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );

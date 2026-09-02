@@ -83,6 +83,34 @@ export const PROFILE_FIELD_SUMMARY: ProfileFieldSummary[] = [
     step: 1,
     value: (p) => HOUSING_OPTIONS.find((h) => h.value === p?.housingStatus)?.label ?? null,
   },
+  // 아래 4개는 온보딩 폼에서 직접 묻지 않고, 대화 중 AI가 추가로 물어본
+  // profile_ask 답변으로만 채워진다(ProfileAskForm 참고) — 그래서 이 카드에
+  // 없으면 "방금 답한 게 실제로 반영됐는지" 확인할 방법이 없었다.
+  {
+    key: "financialIncomeTaxed",
+    label: "금융소득종합과세 이력",
+    step: 1,
+    value: (p) =>
+      typeof p?.financialIncomeTaxed === "boolean" ? (p.financialIncomeTaxed ? "있음" : "없음") : null,
+  },
+  {
+    key: "isSmeEmployee",
+    label: "중소기업 재직 여부",
+    step: 1,
+    value: (p) => (typeof p?.isSmeEmployee === "boolean" ? (p.isSmeEmployee ? "재직" : "미재직") : null),
+  },
+  {
+    key: "householdMonthlyIncome",
+    label: "가구 전체 월소득",
+    step: 1,
+    value: (p) => won(p?.householdMonthlyIncome),
+  },
+  {
+    key: "previousAnnualIncome",
+    label: "직전년도 연 소득",
+    step: 1,
+    value: (p) => won(p?.previousAnnualIncome),
+  },
   { key: "monthlyBudget", label: "월 저축여력", step: 2, value: (p) => won(p?.monthlyBudget) },
   { key: "targetDate", label: "목표 시점", step: 2, value: (p) => p?.targetDate ?? null },
   {

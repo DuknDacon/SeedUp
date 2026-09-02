@@ -66,6 +66,11 @@ export type RoadmapProfileFields = {
   // "policyId:gateId" 합성 키 → 예/아니오. Roadmap-Agent가 상품 원문에서 LLM으로
   // 미리 발견·캐싱해둔, 4개 하드코딩 필드를 넘어서는 자격조건에 대한 답변.
   dynamicGateAnswers?: Record<string, boolean> | null;
+  // dynamicGateAnswers와 같은 키를 쓰는 사람이 읽을 질문 문구. 게이트 자체는
+  // 실제 UserProfile 필드가 아니라 합성 키라 "현재 저장된 조건" 요약 카드가
+  // 나중에 이 답변이 뭘 뜻하는지 보여주려면 별도로 들고 있어야 한다 — 그
+  // 라운드의 ProfileAskField.question 을 답변 시점에 같이 저장해둔다.
+  dynamicGateLabels?: Record<string, string> | null;
 };
 
 export type UserProfile = components["schemas"]["UserProfileIn"] &
