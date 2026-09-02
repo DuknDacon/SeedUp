@@ -120,19 +120,38 @@ def _map_missing_fields(
 ) -> list[dict[str, str]]:
     """missingFields(맨 필드명)를 profile_ask 슬롯으로 바꾼다.
 
-    Roadmap-Agent가 missingFieldDetails(질문·힌트·inputType이 이미 채워진
-    구조화된 메타데이터)를 함께 보내주면 그걸 우선 쓴다 — LLM이 상품마다
-    다르게 발견하는 동적 게이트("policy_id:gate_id" 합성 키)는 이 라우터에
-    미리 등록해둘 수 없어, 이 경로가 사실상 유일한 렌더 방법이다. 레거시
-    4개 필드는 여기 등록된 `key`(camelCase 프로필 필드명)로 매핑하지만, 동적
-    게이트는 실제 UserProfile 필드가 아니므로 원본 합성 키를 `key` 그대로
-    유지한다 — 프론트가 답변을 dynamicGateAnswers[key]로 라우팅할 때 쓴다.
+    레거시 4개 필드(financial_income_taxed 등)는 항상 `_ROADMAP_PRELAUNCH_FIELDS`에
+    등록된 camelCase `key`/`inputUnit`을 쓴다 — Roadmap-Agent가 이 필드에 대해서도
+    missingFieldDetails를 함께 보내지만(모든 필드를 다 담아 보냄), 그 detail의
+    `field`는 Roadmap-Agent 내부 snake_case 이름 그대로다. 예전엔 detail이 있으면
+    무조건 그 snake_case 이름을 `key`로 써버려, 사용자가 답한 값이
+    `previousAnnualIncome`이 아니라 `previous_annual_income`이라는 엉뚱한
+    프로필 속성에 저장되고(실제 필드는 계속 null로 남음) `inputUnit: "만원"`
+    변환도 안 붙어 값 자릿수까지 틀리는 버그가 있었다(실브라우저 테스트로 발견).
+    question/hint 문구만 Roadmap-Agent가 보낸 최신 걸로 덮어써 두 레포가 서로
+    벌어져도 화면 문구는 최신 상태를 유지한다.
+
+    동적 게이트("policy_id:gate_id" 합성 키)는 이 라우터에 미리 등록해둘 수
+    없으므로, 레거시 슬롯에 없는 이름만 detail 기반으로 렌더한다 — 이때는
+    원본 합성 키를 `key` 그대로 유지해야 프론트가 답변을
+    dynamicGateAnswers[key]로 올바르게 라우팅한다.
     """
     details_by_field = {
         str(detail.get("field")): detail for detail in (missing_field_details or [])
     }
     fields = []
     for name in missing_fields:
+        slot = _ROADMAP_PRELAUNCH_FIELDS.get(name)
+        if slot is not None:
+            field = dict(slot)
+            detail = details_by_field.get(name)
+            if detail is not None:
+                if detail.get("question"):
+                    field["question"] = detail["question"]
+                if detail.get("hint"):
+                    field["hint"] = detail["hint"]
+            fields.append(field)
+            continue
         detail = details_by_field.get(name)
         if detail is not None:
             fields.append(
@@ -145,11 +164,6 @@ def _map_missing_fields(
                     "isDynamicGate": ":" in name,
                 }
             )
-            continue
-        slot = _ROADMAP_PRELAUNCH_FIELDS.get(name)
-        if slot is None:
-            continue
-        fields.append(dict(slot))
     return fields
 
 
