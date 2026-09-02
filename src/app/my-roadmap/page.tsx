@@ -9,7 +9,7 @@ import {
   loadRoadmapHistory,
   type RoadmapHistoryEntry,
 } from "@/lib/roadmapHistory";
-import { saveProfile, setActiveThreadId } from "@/lib/profileStorage";
+import { clearProfile, getOrCreateThreadId, saveProfile, setActiveThreadId } from "@/lib/profileStorage";
 
 function formatDate(iso: string): string {
   try {
@@ -61,6 +61,15 @@ export default function MyRoadmapPage() {
     if (!window.confirm("이 상담 이력을 삭제할까요? 되돌릴 수 없어요.")) return;
     deleteRoadmapHistoryEntry(entry.threadId);
     setEntries((cur) => cur?.filter((e) => e.threadId !== entry.threadId));
+    // "내 로드맵" 이력과 /chat 진입 화면이 보는 저장된 프로필은 서로 다른
+    // localStorage 키다 — 이력만 지우면 프로필은 그대로 남아, /chat에
+    // 들어갔을 때 방금 지운 상담의 조건이 "저장된 조건이 있어요"로 계속
+    // 뜨는 것처럼 보인다(실사용자 피드백). 지금 활성 세션과 같은 상담을
+    // 지운 경우에만 프로필도 함께 지운다 — 다른(비활성) 이력을 지울 땐
+    // 지금 진행 중인 조건 입력을 건드리면 안 되므로 그대로 둔다.
+    if (entry.threadId === getOrCreateThreadId()) {
+      clearProfile();
+    }
   }
 
   return (
