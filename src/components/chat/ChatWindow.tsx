@@ -712,6 +712,7 @@ export function ChatWindow() {
       </div>
     </div>
 
+    {/* 테스트용 최신 결과 섹션 — 화면에서 숨김 (필요 시 주석 해제)
     {latestPolicyBlocks.length > 0 && (
       <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50/40 p-4">
         <div className="mb-3 text-xs font-semibold text-amber-700 uppercase tracking-wide">
@@ -729,6 +730,7 @@ export function ChatWindow() {
         </div>
       </div>
     )}
+    */}
     </>
   );
 }
