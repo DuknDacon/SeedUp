@@ -171,7 +171,11 @@ function MetricsPanel({ scenario }: { scenario: Scenario }) {
   const barTotal = Math.max(expectedAmt + gap, principalAmt, 1);
   const principalPct = (principalAmt / barTotal) * 100;
   const growthPct = (growth / barTotal) * 100;
-  const gapPct = (gap / barTotal) * 100;
+  // gapPct는 나머지 두 구간에서 뺀 값으로 계산한다 — 셋을 각각 독립적으로
+  // 반올림하면 합이 100%에 살짝 못 미쳐, 막대 끝에 아무 색도 없는 회색
+  // 트랙(bg-slate-100, 원래는 그냥 배경일 뿐)이 비쳐 보인다. 그게 마치
+  // 범례에 없는 "네 번째 구간"처럼 보여 헷갈린다는 실사용자 피드백으로 수정.
+  const gapPct = achieved ? 0 : Math.max(100 - principalPct - growthPct, 0);
 
   return (
     <div className="mt-3 flex items-start gap-3">
@@ -189,6 +193,9 @@ function MetricsPanel({ scenario }: { scenario: Scenario }) {
           {goalRate == null ? "-" : `${goalRate.toFixed(1)}%`}
         </span>
       </div>
+      {/* 막대 전체 길이 = 목표 금액. 왼쪽 끝(0)에서 오른쪽 끝까지 채워지면
+          목표를 100% 달성했다는 뜻 — 오른쪽 끝에 "목표" 라벨을 달아 이 막대가
+          무엇의 진행률인지 바로 알 수 있게 한다. */}
       <div className="h-3 flex rounded-full bg-slate-100 overflow-hidden">
         <div className="h-full bg-brand-400" style={{ width: `${principalPct}%` }} />
         <div className="h-full bg-sprout-500" style={{ width: `${growthPct}%` }} />
@@ -198,6 +205,10 @@ function MetricsPanel({ scenario }: { scenario: Scenario }) {
             style={{ width: `${gapPct}%` }}
           />
         )}
+      </div>
+      <div className="mt-0.5 flex items-center justify-between text-[9px] text-slate-300">
+        <span>0원</span>
+        <span>{achieved ? "예상액" : "목표 지점"}</span>
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-400">
         <span className="inline-flex items-center gap-1">
