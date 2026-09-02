@@ -68,6 +68,7 @@ const RESULT_BLOCK_TYPES: ReadonlySet<ChatBlock["type"]> = new Set([
   "sql_table",
   "roadmap_plan",
   "profile_ask",
+  "policy_eligibility_cards",
 ]);
 
 const isResultBlock = (b: ChatBlock) => RESULT_BLOCK_TYPES.has(b.type);
@@ -395,7 +396,10 @@ export function ChatWindow() {
       const m = messages[i];
       if (m.role !== "assistant") continue;
       const results = m.blocks.filter(
-        (b) => b.type === "roadmap_plan" || b.type === "profile_ask"
+        (b) =>
+          b.type === "roadmap_plan" ||
+          b.type === "profile_ask" ||
+          b.type === "policy_eligibility_cards"
       );
       if (results.length > 0) return results;
     }
@@ -689,13 +693,19 @@ export function ChatWindow() {
               // 쓰면 React가 이전 라운드의 ProfileAskForm 컴포넌트를 그대로
               // 재사용한다 — 그 안의 submitted(제출됨) state가 안 지워져 새
               // 라운드의 모든 입력/버튼이 disabled로 굳어버리는 버그가 있었다.
-              <ChatBlockRenderer
-                key={`${b.type}-${profileAskRounds}-${i}`}
-                block={b}
-                onSuggestionClick={sendMessage}
-                onProfileAsk={onProfileAskSubmit}
-                profileAskStepNumber={STEP_META.length + profileAskRounds}
-              />
+              <div key={`${b.type}-${profileAskRounds}-${i}`}>
+                {b.type === "policy_eligibility_cards" && (
+                  <div className="mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                    조건에 맞는 상품 리스트
+                  </div>
+                )}
+                <ChatBlockRenderer
+                  block={b}
+                  onSuggestionClick={sendMessage}
+                  onProfileAsk={onProfileAskSubmit}
+                  profileAskStepNumber={STEP_META.length + profileAskRounds}
+                />
+              </div>
             ))}
           </div>
         )}

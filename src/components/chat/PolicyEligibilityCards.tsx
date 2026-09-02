@@ -5,6 +5,7 @@
  * 보여줬는데, 정책이 여러 개고 조건이 많으면(실제로 9개까지도 있음) 문장이
  * 도배돼 가독성이 크게 떨어진다는 실사용자 피드백으로 카드로 바꿨다.
  */
+import Link from "next/link";
 import { CheckCircle2, CircleHelp } from "lucide-react";
 import type { PolicyEligibilityCard } from "@/types/api";
 
@@ -29,7 +30,11 @@ export function PolicyEligibilityCards({ cards }: { cards: PolicyEligibilityCard
   return (
     <div className="mt-2 space-y-2">
       {cards.map((card) => (
-        <div key={card.policyId} className="rounded-lg border bg-white overflow-hidden">
+        <Link
+          key={card.policyId}
+          href={`/policy/${card.policyId}`}
+          className="block rounded-lg border bg-white overflow-hidden hover:border-brand-300 hover:shadow-sm transition"
+        >
           <div className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 border-b">
             <span className="text-sm font-medium text-slate-900 truncate">{card.name}</span>
             <div className="flex items-center gap-1 shrink-0">
@@ -54,7 +59,7 @@ export function PolicyEligibilityCards({ cards }: { cards: PolicyEligibilityCard
               </li>
             ))}
           </ul>
-        </div>
+        </Link>
       ))}
     </div>
   );
