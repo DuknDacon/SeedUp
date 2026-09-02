@@ -233,6 +233,7 @@ async def call_roadmap_agent(
         question=question,
         thread_id=thread_id,
         answering_missing_fields=answering_missing_fields,
+        is_initial_request=is_first_call,
     )
 
     url = f"{ROADMAP_API}/api/v1/roadmaps"
@@ -286,6 +287,7 @@ def _build_payload(
     question: str,
     thread_id: str,
     answering_missing_fields: bool = False,
+    is_initial_request: bool = False,
 ) -> dict[str, Any]:
     district = profile.get("regionDistrictCode") or profile.get("regionCode") or ""
     province = profile.get("regionProvinceCode") or (
@@ -326,6 +328,13 @@ def _build_payload(
         # 답변을 UserProfile.dynamicGateAnswers 에 모아두면 그대로 실어보낸다.
         "dynamicGateAnswers": profile.get("dynamicGateAnswers") or {},
         "answeringMissingFields": answering_missing_fields,
+        # 라우터 thread에서 이 turn이 진짜 "로드맵 첫 생성 요청"인지(delivered_roadmap
+        # 이 아직 False) — 이 값을 true로 보내는 turn은 사용자 원문이 어떻게
+        # 분류되든 무조건 미확인 필드부터 물어야 한다. 그렇지 않으면 프론트가
+        # 실제로 보내는 초기 생성 메시지("입력한 조건으로 자산관리 로드맵을
+        # 만들어줘." 류, 정책 키워드가 전혀 없어 UNCLEAR로 분류됨)가 게이트를
+        # 건너뛰어 미확인 자격조건 그대로 로드맵을 계산해버리는 회귀가 생긴다.
+        "isInitialRoadmapRequest": is_initial_request,
     }
 
 
