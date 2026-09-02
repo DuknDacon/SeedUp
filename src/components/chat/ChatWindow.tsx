@@ -658,8 +658,14 @@ export function ChatWindow() {
               </div>
             )}
             {latestRoadmapBlocks.map((b, i) => (
+              // key에 profileAskRounds를 반드시 넣어야 한다 — latestRoadmapBlocks는
+              // 매번 "가장 최근 profile_ask/roadmap_plan"만 다시 계산해 돌려주므로,
+              // 새 추가질문 라운드가 와도 배열 위치(i)는 그대로(보통 0)라 key={i}만
+              // 쓰면 React가 이전 라운드의 ProfileAskForm 컴포넌트를 그대로
+              // 재사용한다 — 그 안의 submitted(제출됨) state가 안 지워져 새
+              // 라운드의 모든 입력/버튼이 disabled로 굳어버리는 버그가 있었다.
               <ChatBlockRenderer
-                key={i}
+                key={`${b.type}-${profileAskRounds}-${i}`}
                 block={b}
                 onSuggestionClick={sendMessage}
                 onProfileAsk={onProfileAskSubmit}
