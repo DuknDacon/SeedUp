@@ -166,6 +166,12 @@ ROUTER_SYSTEM_PROMPT = """당신은 SeedUp 통합 상담의 라우터입니다.
 5. 툴이 이미 실행되어 결과가 컨텍스트에 있으면 재요약하지 말고 **딱 한 줄**
    짧은 안내 문장만 텍스트로 붙이세요 — 카드/표는 하위 에이전트가 만든 걸
    프론트가 그대로 렌더링합니다.
+5-1. 이 한 줄은 **실제로 일어난 일과 정확히 일치**해야 합니다. ToolMessage의
+   `conversationStatus`를 반드시 확인하세요 — `needs_input`이면 로드맵이
+   확정·변경되지 않고 확인 질문만 나간 것이므로 "반영했습니다"/"다시
+   구성했습니다"/"완료했습니다" 같은 완료형 문구를 쓰지 마세요("~을 확인
+   중입니다" 처럼 진행형으로 쓰거나, 안내 문장 자체를 생략하세요).
+   `completed`일 때만 "반영/계산/구성했습니다" 같은 완료형을 쓰세요.
 
 당신은 툴이 돌려준 구조화된 블록(policy_results/roadmap_plan 등)의 내용을
 따로 요약·복제하지 않습니다.
@@ -299,7 +305,18 @@ async def _run_tool_calls(state: RouterState) -> dict[str, Any]:
                     (b.get("plan") for b in blocks if b.get("type") == "roadmap_plan"),
                     None,
                 )
-                summary = f"[로드맵] {len(blocks)} block(s) 수신" + _pending_question_hint(blocks)
+                # 라우터 LLM이 자기 안내 문장을 쓸 때 이번 turn이 실제로 뭔가
+                # 확정한 건지(completed) 아니면 확인 질문만 나간 건지(needs_input)
+                # 알 방법이 없으면, needs_input인데도 "~반영했습니다/~완료했습니다"
+                # 처럼 완료형으로 써버려 실제 결과와 안 맞는 문구가 나간다 —
+                # conversationStatus/Intent를 요약에 실어보내 이를 방지한다.
+                conv_status = (new_plan or {}).get("conversationStatus")
+                conv_intent = (new_plan or {}).get("conversationIntent")
+                summary = (
+                    f"[로드맵] {len(blocks)} block(s) 수신 | "
+                    f"conversationStatus={conv_status} conversationIntent={conv_intent}"
+                    + _pending_question_hint(blocks)
+                )
                 return {
                     "tool_call_id": tcid,
                     "name": name,
