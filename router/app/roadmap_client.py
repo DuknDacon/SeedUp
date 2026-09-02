@@ -271,7 +271,13 @@ async def call_roadmap_agent(
         if chat_reply:
             blocks.append({"type": "text", "content": chat_reply})
         # 전체 응답을 roadmap_plan 블록으로 통째 상재 → 프론트가 기존 렌더러 재사용.
-        blocks.append({"type": "roadmap_plan", "plan": data})
+        # 단, 순수 질의성 의도(financial_qa/unclear)는 추천 자체가 이번 turn에
+        # 바뀌지 않았으므로 카드를 다시 안 보낸다 — 안 그러면 "참여기업이 뭐야?"
+        # 같은 단순 용어 질문에도 매번 로드맵을 새로 만드는 것처럼 보여
+        # 사용자가 혼란스러워하는 문제가 생긴다. 오른쪽 패널은 마지막으로 받은
+        # 카드를 그대로 유지한다.
+        if data.get("conversationIntent") not in ("financial_qa", "unclear"):
+            blocks.append({"type": "roadmap_plan", "plan": data})
 
     request_patch = data.get("requestPatch")
     print(f"[R-HTTP ←] {r.status_code} in {elapsed:.2f}s | blocks={len(blocks)} patch={'y' if request_patch else 'n'}")
