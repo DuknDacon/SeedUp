@@ -52,9 +52,6 @@ export function RecommendationsBlockView({
                   <span className="text-sm font-medium text-slate-900">
                     {it.title}
                   </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 shrink-0">
-                    {meta.label}
-                  </span>
                 </div>
                 {it.subtitle && (
                   <div className="mt-0.5 text-[11px] text-slate-500 truncate">

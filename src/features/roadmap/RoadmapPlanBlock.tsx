@@ -36,8 +36,8 @@ export function RoadmapPlanBlock({
   return (
     <div className="space-y-4">
       <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3">
-        <div className="text-xs font-semibold text-blue-800">맞춤 자산관리 로드맵</div>
-        <p className="mt-1 text-sm leading-relaxed text-slate-700">{plan.summary}</p>
+        <div className="text-xs font-semibold text-blue-800">🗨️맞춤 자산관리 AI 안내원</div>
+        <p className="mt-1 text-sm leading-relaxed text-slate-700">👨🏻‍💼 {plan.summary}</p>
         <p className="mt-2 text-xs leading-relaxed text-slate-500">{plan.notice}</p>
       </div>
       <RoadmapScenarioCard
