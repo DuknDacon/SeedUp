@@ -96,6 +96,11 @@ export function ChatWindow() {
   // profile_ask 가 몇 번째 "추가 질문 라운드"인지 — 온보딩 3단계에 이어지는
   // 번호(4, 5, 6…)로 표시해 AI가 대화 중 판단해 추가한 질문임을 구분하기 위함.
   const [profileAskRounds, setProfileAskRounds] = useState(0);
+  // "현재 조건 보기"의 "상품별 추가 자격조건"을 select로 바로 고칠 수 있게
+  // 했더니, 여러 개를 연달아 바꾸면 하나 바꿀 때마다 재계산 요청이 나가
+  // 결과가 계속 깜빡였다(실사용자 피드백) — 바꾼 값들을 여기 모아두고
+  // "최신 변경사항 적용" 버튼을 눌렀을 때만 한 번에 합쳐서 보낸다.
+  const [pendingGateEdits, setPendingGateEdits] = useState<Record<string, boolean>>({});
   const [latestHistoryEntry, setLatestHistoryEntry] = useState<RoadmapHistoryEntry | null>(
     null,
   );
@@ -438,14 +443,27 @@ export function ChatWindow() {
     }
   }
 
-  /** "현재 조건 보기" 안 "상품별 추가 자격조건" 항목을 직접 수정 — 값을 바꾸고
-   * 즉시 재계산 turn을 (조용히) 보낸다. 새 질문에 답하는 것과 같은
-   * onProfileAskSubmit 경로를 재사용한다. */
-  function onEditDynamicGate(key: string, label: string, value: boolean) {
-    onProfileAskSubmit(
-      { dynamicGateAnswers: { [key]: value } },
-      [{ key, label, question: label, inputType: "boolean", isDynamicGate: true }],
-    );
+  /** "현재 조건 보기" 안 "상품별 추가 자격조건" select를 바꿀 때마다 즉시
+   * 보내지 않고 로컬에 모아둔다 — applyPendingGateEdits가 실제 전송을
+   * 담당한다. */
+  function onEditDynamicGate(key: string, value: boolean) {
+    setPendingGateEdits((cur) => ({ ...cur, [key]: value }));
+  }
+
+  /** "최신 변경사항 적용" 버튼 — 모아둔 편집을 한 번에 합쳐서
+   * onProfileAskSubmit(새 질문에 답하는 것과 같은 경로)으로 보낸다. */
+  function applyPendingGateEdits() {
+    const entries = Object.entries(pendingGateEdits);
+    if (entries.length === 0) return;
+    const fields: ProfileAskField[] = entries.map(([key]) => ({
+      key,
+      label: profile?.dynamicGateLabels?.[key] ?? key,
+      question: profile?.dynamicGateLabels?.[key] ?? key,
+      inputType: "boolean",
+      isDynamicGate: true,
+    }));
+    onProfileAskSubmit({ dynamicGateAnswers: { ...pendingGateEdits } }, fields);
+    setPendingGateEdits({});
   }
 
   // 정책(기능①) 결과는 통합 테스트 확인용으로 하단에 별도 표시.
@@ -666,6 +684,8 @@ export function ChatWindow() {
               onEditStep={openConditionEditor}
               policyNames={eligibilityPolicyNames}
               onEditDynamicGate={onEditDynamicGate}
+              pendingDynamicGateEdits={pendingGateEdits}
+              onApplyPendingEdits={applyPendingGateEdits}
             />
           </div>
         )}

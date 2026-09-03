@@ -11,7 +11,7 @@
  */
 "use client";
 
-import { ListChecks, Pencil } from "lucide-react";
+import { ListChecks, Pencil, RotateCw } from "lucide-react";
 import type { UserProfile } from "@/types/api";
 import { PROFILE_FIELD_SUMMARY, STEP_META } from "@/lib/profileFieldMeta";
 
@@ -60,6 +60,8 @@ export function ProfileSummaryCard({
   onEditStep,
   policyNames,
   onEditDynamicGate,
+  pendingDynamicGateEdits,
+  onApplyPendingEdits,
 }: {
   profile: Partial<UserProfile> | null;
   /** 폼 안에서 쓸 때: 지금 보고 있는 단계 제목을 강조 표시. */
@@ -70,9 +72,19 @@ export function ProfileSummaryCard({
    * 자격조건"을 정책별로 묶어서 보여준다(ChatWindow의 최신 자격 카드에서
    * 만듦). 없으면(온보딩 폼 쪽 재사용) policyId를 그대로 그룹 이름으로 쓴다. */
   policyNames?: Record<string, string>;
-  /** 있으면 각 동적 게이트 답변을 인라인 select로 바로 수정할 수 있다. */
-  onEditDynamicGate?: (key: string, label: string, value: boolean) => void;
+  /** 있으면 각 동적 게이트 답변을 인라인 select로 바로 수정할 수 있다. 값을
+   * 바꿔도 여기선 로컬 상태만 바뀌고, 실제 전송은 onApplyPendingEdits가
+   * 담당한다 — 여러 개를 연달아 고칠 때마다 재계산이 튀는 걸 막기 위함. */
+  onEditDynamicGate?: (key: string, value: boolean) => void;
+  /** 아직 적용 안 한 편집값. select가 profile의 원래 값 대신 이 값을
+   * 우선해서 보여준다(낙관적 UI). */
+  pendingDynamicGateEdits?: Record<string, boolean>;
+  /** "최신 변경사항 적용" 버튼 클릭 콜백 — pendingDynamicGateEdits가 있을 때만 버튼이 뜬다. */
+  onApplyPendingEdits?: () => void;
 }) {
+  const hasPendingEdits = Boolean(
+    onApplyPendingEdits && pendingDynamicGateEdits && Object.keys(pendingDynamicGateEdits).length > 0,
+  );
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
       <h3 className="flex items-center gap-1.5 font-semibold mb-3 text-[11px] text-slate-500 uppercase tracking-wide">
@@ -120,8 +132,20 @@ export function ProfileSummaryCard({
         ))}
         {dynamicGateEntries(profile).length > 0 && (
           <div>
-            <div className="text-[11px] font-semibold mb-1 text-slate-400">
-              상품별 추가 자격조건
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <div className="text-[11px] font-semibold text-slate-400">
+                상품별 추가 자격조건
+              </div>
+              {hasPendingEdits && (
+                <button
+                  type="button"
+                  onClick={onApplyPendingEdits}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 rounded-md px-2 py-0.5"
+                >
+                  <RotateCw size={10} />
+                  최신 변경사항 적용
+                </button>
+              )}
             </div>
             <div className="space-y-2">
               {groupByPolicy(dynamicGateEntries(profile), policyNames ?? {}).map((group, i) => (
@@ -143,11 +167,15 @@ export function ProfileSummaryCard({
                         <div className="text-slate-500 mb-0.5">{entry.label}</div>
                         {onEditDynamicGate ? (
                           <select
-                            value={entry.value ? "true" : "false"}
-                            onChange={(e) =>
-                              onEditDynamicGate(entry.key, entry.label, e.target.value === "true")
+                            value={
+                              (pendingDynamicGateEdits?.[entry.key] ?? entry.value) ? "true" : "false"
                             }
-                            className="w-full text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded px-1.5 py-1"
+                            onChange={(e) => onEditDynamicGate(entry.key, e.target.value === "true")}
+                            className={`w-full text-xs font-medium bg-white border rounded px-1.5 py-1 ${
+                              entry.key in (pendingDynamicGateEdits ?? {})
+                                ? "border-brand-400 text-brand-700"
+                                : "border-slate-200 text-slate-800"
+                            }`}
                           >
                             <option value="true">예</option>
                             <option value="false">아니오</option>
