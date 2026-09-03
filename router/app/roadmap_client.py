@@ -294,9 +294,21 @@ async def call_roadmap_agent(
         # 정책 자격 요약 — 예전엔 chat_reply 문장 하나에 조건을 다 이어붙였지만
         # (가독성 나쁘다는 실사용자 피드백), 이제 Roadmap-Agent가 카드 단위로
         # 구조화해서 보내준다. chat_reply는 짧은 완료 문구만 담고 있다.
+        #
+        # eligibility_cards가 빈 배열이어도, 이번 turn이 실제로 정책 자격을
+        # 판정한 turn(conversationIntent=="policy_eligibility")이면 블록을
+        # 그대로 보낸다 — 안 그러면 "자격 있는 정책이 0개"와 "애초에 아직
+        # 정책 자격을 확인한 적 없음"을 프론트가 구분 못 해, 조건을 다 입력해
+        # 결과가 0개로 나온 사용자한테마저 "조건을 입력하면 표시됩니다"라는
+        # 안내가 그대로 남아 아직 아무것도 안 한 것처럼 보인다(실사용자
+        # 피드백). 그 외 의도(financial_qa 등)에서 빈 배열이 오는 건 "이번
+        # turn은 자격 재판정과 무관함"을 뜻하므로 여전히 블록을 안 보내
+        # 오른쪽 패널이 마지막 카드를 그대로 유지하게 둔다.
         eligibility_cards = data.get("policyEligibilityCards")
-        if eligibility_cards:
-            blocks.append({"type": "policy_eligibility_cards", "cards": eligibility_cards})
+        if eligibility_cards or data.get("conversationIntent") == "policy_eligibility":
+            blocks.append(
+                {"type": "policy_eligibility_cards", "cards": eligibility_cards or []}
+            )
         # 전체 응답을 roadmap_plan 블록으로 통째 상재 → 프론트가 기존 렌더러 재사용.
         # 단, 순수 질의성 의도(financial_qa/unclear)는 추천 자체가 이번 turn에
         # 바뀌지 않았으므로 카드를 다시 안 보낸다 — 안 그러면 "참여기업이 뭐야?"

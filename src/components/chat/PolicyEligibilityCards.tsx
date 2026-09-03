@@ -8,7 +8,7 @@
  * 하단 전체 너비 섹션에 자리 잡은 뒤로는(ChatWindow 참고) 세로로만 쌓지
  * 않고 폭이 넓으면 카드가 나란히 배치되도록 grid로 바꿨다.
  */
-import { CheckCircle2, CircleHelp } from "lucide-react";
+import { CheckCircle2, CircleHelp, SearchX } from "lucide-react";
 import type { PolicyEligibilityCard } from "@/types/api";
 
 const QUALIFICATION_STYLE: Record<string, string> = {
@@ -27,7 +27,24 @@ function conditionIcon(condition: string) {
 }
 
 export function PolicyEligibilityCards({ cards }: { cards: PolicyEligibilityCard[] }) {
-  if (cards.length === 0) return null;
+  // 라우터가 이 블록을 보낸다는 것 자체가 "이번 turn에 정책 자격을 실제로
+  // 판정했다"는 뜻이다(router.py 참고) — cards가 비어 있으면 아직 조건을
+  // 안 넣은 게 아니라 판정 결과가 진짜 0건인 것이므로, 그냥 안 그리지
+  // 않고 명확히 안내한다. 안 그러면 조건을 다 입력한 사용자에게도 상위
+  // ChatWindow의 기본 문구("조건을 입력하면...")가 그대로 남아 아직
+  // 아무것도 안 한 것처럼 보인다(실사용자 피드백).
+  if (cards.length === 0) {
+    return (
+      <div className="flex flex-col items-center text-center text-sm text-slate-400 py-8">
+        <span className="w-11 h-11 grid place-items-center rounded-full bg-slate-100 text-slate-400 mb-3">
+          <SearchX size={20} />
+        </span>
+        지금 입력한 조건으로는 신청 가능한 정책 상품이 없습니다.
+        <br />
+        조건을 바꾸거나, 탈락 사유와 모집상태를 공식 공고에서 다시 확인해 주세요.
+      </div>
+    );
+  }
 
   return (
     <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
