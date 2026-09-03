@@ -71,6 +71,10 @@ export type RoadmapProfileFields = {
   // 나중에 이 답변이 뭘 뜻하는지 보여주려면 별도로 들고 있어야 한다 — 그
   // 라운드의 ProfileAskField.question 을 답변 시점에 같이 저장해둔다.
   dynamicGateLabels?: Record<string, string> | null;
+  // "내 로드맵"에서 이 상담을 구분할 별명(선택). RoadmapHistoryEntry에도 같은
+  // 값이 저장되지만, 그건 로드맵이 완료된 뒤에야 생기는 이력이라 완료 전에도
+  // (예: 채팅 헤더의 thread id 대신 표시) 즉시 쓸 수 있게 profile에도 둔다.
+  nickname?: string | null;
 };
 
 export type UserProfile = components["schemas"]["UserProfileIn"] &

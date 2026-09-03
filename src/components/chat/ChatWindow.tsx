@@ -387,8 +387,9 @@ export function ChatWindow() {
           previousAnnualIncome: null,
           // 동적 자격조건 게이트 답변도 같은 이유로 새 상담엔 안 물려준다.
           dynamicGateAnswers: {},
+          nickname,
         }
-      : rawNext;
+      : { ...rawNext, nickname: nickname ?? profile?.nickname };
     saveProfile(next);
     setProfile(next);
     pendingNicknameRef.current = nickname;
@@ -672,7 +673,16 @@ export function ChatWindow() {
         </div>
         <div className="border-b px-4 py-2 flex items-center justify-between text-xs">
           <div className="text-slate-400 truncate">
-            thread: <code className="text-[11px]">{threadId.slice(0, 8)}…</code>
+            {/* thread id는 디버깅용 내부 식별자라 사용자에게 의미가 없다는
+                피드백으로, 입력해둔 별명이 있으면 그걸 대신 보여준다 — 별명이
+                없으면(선택 항목이라 비어있을 수 있음) thread id로 대체 표시. */}
+            {profile?.nickname ? (
+              <span className="font-medium text-slate-500">{profile.nickname}</span>
+            ) : (
+              <>
+                thread: <code className="text-[11px]">{threadId.slice(0, 8)}…</code>
+              </>
+            )}
             {profile && (
               <span className="ml-2">
                 (프로필 로드됨: {profile.age}세 · {profile.employmentType})
