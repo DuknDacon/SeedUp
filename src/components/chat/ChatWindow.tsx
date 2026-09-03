@@ -420,10 +420,22 @@ export function ChatWindow() {
   // ("policyId:gateId")의 policyId를 실제 정책명으로 바꿔 그룹핑할 수 있게
   // 맵을 만든다. 숨기지 않고 그대로 다 보여주되(사용자가 자기 조건을 정확히
   // 알아야 한다는 요구) 정책별로만 묶는다.
+  //
+  // latestPolicyEligibilityBlocks(가장 최근 카드 메시지 하나)에서만 이름을
+  // 찾으면, 답변이 쌓이는 동안 어떤 정책이 나중에 top-3 카드에서 밀려나거나
+  // 탈락해 최신 메시지에 더 이상 안 나오는 경우 이름 조회가 실패해
+  // "20260625005400113245" 같은 원본 정책번호가 그대로 화면에 노출되는
+  // 버그가 있었다(실사용자 피드백으로 발견). 대화 전체의 모든
+  // policy_eligibility_cards 메시지를 오래된 것부터 훑어 누적하면(최신
+  // 메시지가 나중에 덮어써서 그쪽 정보가 우선), 한 번이라도 카드에 나온
+  // 적 있는 정책은 이름을 계속 기억한다.
   const eligibilityPolicyNames: Record<string, string> = {};
-  for (const b of latestPolicyEligibilityBlocks) {
-    if (b.type !== "policy_eligibility_cards") continue;
-    for (const card of b.cards) eligibilityPolicyNames[card.policyId] = card.name;
+  for (const m of messages) {
+    if (m.role !== "assistant") continue;
+    for (const b of m.blocks) {
+      if (b.type !== "policy_eligibility_cards") continue;
+      for (const card of b.cards) eligibilityPolicyNames[card.policyId] = card.name;
+    }
   }
 
   /** "현재 조건 보기" 안 "상품별 추가 자격조건" 항목을 직접 수정 — 값을 바꾸고

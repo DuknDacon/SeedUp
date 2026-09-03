@@ -44,7 +44,11 @@ function groupByPolicy(
     if (group) {
       group.entries.push(entry);
     } else {
-      groups.set(policyId, { name: policyNames[policyId] ?? policyId, entries: [entry] });
+      // 정책 원본 ID(예: "20260625005400113245")는 사용자에게 노출될 이유가
+      // 없는 내부 식별자다 — ChatWindow가 대화 전체에서 이름을 누적해도
+      // 한 번도 카드에 안 나온 정책이면 여전히 못 찾을 수 있는데, 그때도
+      // raw ID 대신 사람이 읽을 수 있는 문구로 대체한다.
+      groups.set(policyId, { name: policyNames[policyId] ?? "정책명 확인 중", entries: [entry] });
     }
   }
   return Array.from(groups.values());
