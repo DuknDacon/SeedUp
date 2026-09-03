@@ -211,7 +211,32 @@ def agent_node(state: RouterState) -> dict[str, Any]:
             # 툴콜 있는 AIMessage 는 유지 (툴 리절트와 짝), 순수 답변도 유지
             kept.append(m)
 
-    invoke_msgs: list[BaseMessage] = [SystemMessage(content=ROUTER_SYSTEM_PROMPT), *kept]
+    # ── 변경 전 ──
+    # invoke_msgs: list[BaseMessage] = [SystemMessage(content=ROUTER_SYSTEM_PROMPT), *kept]
+    # ── 변경 후 ──
+    # 로드맵을 이미 한 번이라도 낸 스레드라면, 마지막 plan 요약을 system-side
+    # 컨텍스트로 하나 더 얹는다. ToolMessage 요약(_roadmap_plan_hint) 만으로도
+    # 다음 한두 turn 은 버티지만, 잡담이 여러 turn 끼면 컨텍스트 앞쪽으로 밀려
+    # 사라진다 — 라우터가 "적금 중에 뭐가 나아?" 같은 후속을 규칙 3-3 이 아닌
+    # 규칙 4(직접 답변) 로 오분류하는 원인.
+    plan_ctx = _roadmap_plan_hint(state.get("last_roadmap_plan"))
+    ctx_msgs: list[BaseMessage] = []
+    if plan_ctx:
+        ctx_msgs.append(
+            SystemMessage(
+                content=(
+                    "직전까지 이 스레드에서 로드맵으로 제시된 시나리오 요약입니다"
+                    " (사용자에게 다시 나열하지 말고, 후속 질문의 지시대상 판단에만 사용):"
+                    f"{plan_ctx}"
+                )
+            )
+        )
+
+    invoke_msgs: list[BaseMessage] = [
+        SystemMessage(content=ROUTER_SYSTEM_PROMPT),
+        *ctx_msgs,
+        *kept,
+    ]
     t0 = time.monotonic()
     try:
         resp: AIMessage = llm.invoke(invoke_msgs)
@@ -261,6 +286,39 @@ def _pending_question_hint(blocks: list[dict[str, Any]]) -> str:
     if not questions:
         return ""
     return " | 이번 turn에 아직 답변 대기 중인 질문: " + " / ".join(questions)
+
+
+def _roadmap_plan_hint(plan: dict[str, Any] | None) -> str:
+    """이번(또는 마지막) turn 에 나간 로드맵의 추천/대안 시나리오 이름·상품유형·
+    주요 배분을 한 줄 요약으로 만든다.
+
+    ToolMessage.content 에 실어두면 후속 turn 에서 라우터 LLM 이 "무엇을
+    추천했는지" 를 툴 재호출 없이 프롬프트 안에서 확인할 수 있어, "너가 알려준
+    적금 중에 뭐가 잘 맞아?" 같은 후속을 규칙 3-3(→ ask_roadmap_agent) 로
+    올바르게 라우팅한다. agent_node 에서도 last_roadmap_plan 스냅샷을 같은
+    포맷으로 다시 태우므로 컨텍스트 잘림 대비 안전망 역할까지 겸한다.
+    """
+    if not plan:
+        return ""
+
+    def _one(tag: str, sc: dict[str, Any] | None) -> str | None:
+        if not sc:
+            return None
+        title = sc.get("title") or "-"
+        ptype = sc.get("productType") or "-"
+        allocs = sc.get("allocations") or []
+        labels = [a.get("label") for a in allocs if a.get("label")]
+        alloc_txt = f" / 배분: {', '.join(labels)}" if labels else ""
+        return f"{tag}={title}({ptype}){alloc_txt}"
+
+    parts = [
+        _one("추천", plan.get("recommended")),
+        _one("대안", plan.get("alternative")),
+    ]
+    parts = [p for p in parts if p]
+    if not parts:
+        return ""
+    return " | 이번 turn 제시 시나리오: " + " ; ".join(parts)
 
 
 async def _run_tool_calls(state: RouterState) -> dict[str, Any]:
@@ -327,9 +385,21 @@ async def _run_tool_calls(state: RouterState) -> dict[str, Any]:
                 # conversationStatus/Intent를 요약에 실어보내 이를 방지한다.
                 conv_status = (new_plan or {}).get("conversationStatus")
                 conv_intent = (new_plan or {}).get("conversationIntent")
+                # ── 변경 전 (후속 질문에서 라우터 LLM 이 무엇을 추천했었는지
+                #    프롬프트 안에서 알아낼 방법이 없어 "저는 이전 대화 내용을
+                #    기억하지 못합니다" 로 빠지던 원인) ──
+                # summary = (
+                #     f"[로드맵] {len(blocks)} block(s) 수신 | "
+                #     f"conversationStatus={conv_status} conversationIntent={conv_intent}"
+                #     + _pending_question_hint(blocks)
+                # )
+                # ── 변경 후: 추천/대안 시나리오의 제목·productType·주요 배분
+                #    라벨을 요약에 실어보내, 다음 turn 라우터가 규칙 3-3 을
+                #    발동할 근거를 갖게 한다. ──
                 summary = (
                     f"[로드맵] {len(blocks)} block(s) 수신 | "
                     f"conversationStatus={conv_status} conversationIntent={conv_intent}"
+                    + _roadmap_plan_hint(new_plan)
                     + _pending_question_hint(blocks)
                 )
                 return {
