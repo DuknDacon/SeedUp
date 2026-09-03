@@ -11,9 +11,10 @@
  */
 "use client";
 
+import { useEffect, useState } from "react";
 import { ListChecks, Pencil, RotateCw } from "lucide-react";
 import type { UserProfile } from "@/types/api";
-import { PROFILE_FIELD_SUMMARY, STEP_META } from "@/lib/profileFieldMeta";
+import { EXTRA_PROFILE_FIELDS, PROFILE_FIELD_SUMMARY, STEP_META } from "@/lib/profileFieldMeta";
 
 /** dynamicGateAnswers는 "policyId:gateId" 합성 키라 PROFILE_FIELD_SUMMARY의
  * 고정 필드 목록에 넣을 수 없다 — 상품마다 다른 키가 대화 중에 동적으로
@@ -54,6 +55,49 @@ function groupByPolicy(
   return Array.from(groups.values());
 }
 
+/** "만원" 단위 숫자 필드의 인라인 편집칸. 저장값은 원 단위라 편집 중엔
+ * 만원 단위 문자열을 별도 버퍼로 들고 있다가, blur 시점에 원 단위로
+ * 환산해서 onCommit으로 올려보낸다. */
+function InlineNumberEdit({
+  valueWon,
+  pendingWon,
+  onCommit,
+}: {
+  valueWon: number | null;
+  pendingWon?: number;
+  onCommit: (won: number) => void;
+}) {
+  const displayWon = pendingWon ?? valueWon ?? 0;
+  const [raw, setRaw] = useState(String(Math.round(displayWon / 10_000)));
+
+  // 적용 후(pendingWon이 사라지고 valueWon이 새로 반영됨) 등 바깥에서 값이
+  // 바뀌면 편집 버퍼도 같이 맞춘다 — 안 그러면 적용 후에도 입력칸에 옛날
+  // 입력값이 그대로 남아 보인다.
+  useEffect(() => {
+    setRaw(String(Math.round(displayWon / 10_000)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayWon]);
+
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        type="number"
+        inputMode="numeric"
+        value={raw}
+        onChange={(e) => setRaw(e.target.value)}
+        onBlur={() => {
+          const n = Number(raw.replace(/[,_\s]/g, ""));
+          if (!Number.isNaN(n)) onCommit(Math.round(n * 10_000));
+        }}
+        className={`w-full text-xs font-medium bg-white border rounded px-1.5 py-1 ${
+          pendingWon != null ? "border-brand-400 text-brand-700" : "border-slate-200 text-slate-800"
+        }`}
+      />
+      <span className="text-[11px] text-slate-400 flex-shrink-0">만원</span>
+    </div>
+  );
+}
+
 export function ProfileSummaryCard({
   profile,
   activeStep,
@@ -61,6 +105,8 @@ export function ProfileSummaryCard({
   policyNames,
   onEditDynamicGate,
   pendingDynamicGateEdits,
+  onEditProfileField,
+  pendingProfileEdits,
   onApplyPendingEdits,
 }: {
   profile: Partial<UserProfile> | null;
@@ -76,15 +122,26 @@ export function ProfileSummaryCard({
    * 바꿔도 여기선 로컬 상태만 바뀌고, 실제 전송은 onApplyPendingEdits가
    * 담당한다 — 여러 개를 연달아 고칠 때마다 재계산이 튀는 걸 막기 위함. */
   onEditDynamicGate?: (key: string, value: boolean) => void;
-  /** 아직 적용 안 한 편집값. select가 profile의 원래 값 대신 이 값을
-   * 우선해서 보여준다(낙관적 UI). */
+  /** 아직 적용 안 한 동적 게이트 편집값. select가 profile의 원래 값 대신
+   * 이 값을 우선해서 보여준다(낙관적 UI). */
   pendingDynamicGateEdits?: Record<string, boolean>;
-  /** "최신 변경사항 적용" 버튼 클릭 콜백 — pendingDynamicGateEdits가 있을 때만 버튼이 뜬다. */
+  /** 있으면 EXTRA_PROFILE_FIELDS(금융소득종합과세 이력 등 4개)를 인라인으로
+   * 바로 수정할 수 있다. onEditDynamicGate와 마찬가지로 로컬에만 반영된다. */
+  onEditProfileField?: (key: string, value: boolean | number) => void;
+  /** 아직 적용 안 한 EXTRA_PROFILE_FIELDS 편집값. */
+  pendingProfileEdits?: Partial<UserProfile>;
+  /** "최신 변경사항 적용" 버튼 클릭 콜백 — 편집값이 하나라도 있을 때만 버튼이 뜬다. */
   onApplyPendingEdits?: () => void;
 }) {
   const hasPendingEdits = Boolean(
-    onApplyPendingEdits && pendingDynamicGateEdits && Object.keys(pendingDynamicGateEdits).length > 0,
+    onApplyPendingEdits &&
+      ((pendingDynamicGateEdits && Object.keys(pendingDynamicGateEdits).length > 0) ||
+        (pendingProfileEdits && Object.keys(pendingProfileEdits).length > 0)),
   );
+  const extraFields = EXTRA_PROFILE_FIELDS.filter((f) => f.value(profile) != null);
+  const gateGroups = groupByPolicy(dynamicGateEntries(profile), policyNames ?? {});
+  const hasExtraSection = extraFields.length > 0 || gateGroups.length > 0;
+
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
       <h3 className="flex items-center gap-1.5 font-semibold mb-3 text-[11px] text-slate-500 uppercase tracking-wide">
@@ -130,11 +187,19 @@ export function ProfileSummaryCard({
             </ul>
           </div>
         ))}
-        {dynamicGateEntries(profile).length > 0 && (
+
+        {/* 온보딩 1~3단계 어디에도 입력 칸이 없는 필드들(EXTRA_PROFILE_FIELDS)과
+            상품별 동적 게이트 답변 — 둘 다 온보딩 폼이 아니라 "대화 중"에만
+            채워지는 값이라 같은 자리에 묶는다. 예전엔 EXTRA_PROFILE_FIELDS를
+            "기능① 정책 매칭 조건" 밑에 끼워놨는데, 클릭하면 그 단계로
+            이동은 해도 애초에 물어보는 입력 칸이 없어 고칠 방법이 없었다
+            (실사용자 피드백: "이걸 누르면 초기 조건입력으로 가는데 이건
+            추가 입력사항이라 조건입력엔 없다"). */}
+        {hasExtraSection && (
           <div>
             <div className="flex items-center justify-between gap-2 mb-1">
               <div className="text-[11px] font-semibold text-slate-400">
-                상품별 추가 자격조건
+                대화 중 추가로 입력한 조건
               </div>
               {hasPendingEdits && (
                 <button
@@ -147,50 +212,99 @@ export function ProfileSummaryCard({
                 </button>
               )}
             </div>
-            <div className="space-y-2">
-              {groupByPolicy(dynamicGateEntries(profile), policyNames ?? {}).map((group, i) => (
-                <div key={i}>
-                  <div className="text-[11px] font-medium text-slate-500 mb-0.5 truncate">
-                    {group.name}
+
+            {extraFields.length > 0 && (
+              <ul className="space-y-1 mb-2">
+                {extraFields.map((f) => {
+                  const pending = pendingProfileEdits?.[f.key as keyof UserProfile];
+                  return (
+                    <li key={f.key} className="text-xs px-1.5 py-1 rounded-md">
+                      <div className="text-slate-500 mb-0.5">{f.label}</div>
+                      {!onEditProfileField ? (
+                        <span className="font-medium text-slate-800">{f.value(profile)}</span>
+                      ) : f.inlineEditType === "boolean" ? (
+                        <select
+                          value={
+                            (pending as boolean | undefined) ??
+                            (profile?.[f.key as keyof UserProfile] as boolean)
+                              ? "true"
+                              : "false"
+                          }
+                          onChange={(e) =>
+                            onEditProfileField(f.key, e.target.value === "true")
+                          }
+                          className={`w-full text-xs font-medium bg-white border rounded px-1.5 py-1 ${
+                            pending !== undefined
+                              ? "border-brand-400 text-brand-700"
+                              : "border-slate-200 text-slate-800"
+                          }`}
+                        >
+                          <option value="true">예</option>
+                          <option value="false">아니오</option>
+                        </select>
+                      ) : (
+                        <InlineNumberEdit
+                          valueWon={(profile?.[f.key as keyof UserProfile] as number) ?? null}
+                          pendingWon={pending as number | undefined}
+                          onCommit={(won) => onEditProfileField(f.key, won)}
+                        />
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            {gateGroups.length > 0 && (
+              <div className="space-y-2">
+                {gateGroups.map((group, i) => (
+                  <div key={i}>
+                    <div className="text-[11px] font-medium text-slate-500 mb-0.5 truncate">
+                      {group.name}
+                    </div>
+                    <ul className="space-y-1">
+                      {group.entries.map((entry) => (
+                        // 예전엔 라벨(질문)과 select를 한 줄에 좌우로 배치했는데,
+                        // select 옵션에 "예, 타 부처 또는 지방정부의 취업 관련
+                        // 지원사업에 참여 중입니다." 같은 긴 문장이 들어가면서
+                        // select 박스 자체가 넓어져 라벨이 밀려버렸다 — 남은
+                        // 폭이 몇 픽셀밖에 안 남아 한글이 한 글자씩 세로로
+                        // 줄바꿈되는 문제가 있었다(실사용자 스크린샷으로 발견).
+                        // ProfileAskForm과 같은 세로 배치로 바꿔 폭에 상관없이
+                        // 안전하게 만든다.
+                        <li key={entry.key} className="text-xs px-1.5 py-1 rounded-md">
+                          <div className="text-slate-500 mb-0.5">{entry.label}</div>
+                          {onEditDynamicGate ? (
+                            <select
+                              value={
+                                (pendingDynamicGateEdits?.[entry.key] ?? entry.value)
+                                  ? "true"
+                                  : "false"
+                              }
+                              onChange={(e) =>
+                                onEditDynamicGate(entry.key, e.target.value === "true")
+                              }
+                              className={`w-full text-xs font-medium bg-white border rounded px-1.5 py-1 ${
+                                entry.key in (pendingDynamicGateEdits ?? {})
+                                  ? "border-brand-400 text-brand-700"
+                                  : "border-slate-200 text-slate-800"
+                              }`}
+                            >
+                              <option value="true">예</option>
+                              <option value="false">아니오</option>
+                            </select>
+                          ) : (
+                            <span className="font-medium text-slate-800">
+                              {entry.value ? "예" : "아니오"}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <ul className="space-y-1">
-                    {group.entries.map((entry) => (
-                      // 예전엔 라벨(질문)과 select를 한 줄에 좌우로 배치했는데,
-                      // select 옵션에 "예, 타 부처 또는 지방정부의 취업 관련
-                      // 지원사업에 참여 중입니다." 같은 긴 문장이 들어가면서
-                      // select 박스 자체가 넓어져 라벨이 밀려버렸다 — 남은
-                      // 폭이 몇 픽셀밖에 안 남아 한글이 한 글자씩 세로로
-                      // 줄바꿈되는 문제가 있었다(실사용자 스크린샷으로 발견).
-                      // ProfileAskForm과 같은 세로 배치로 바꿔 폭에 상관없이
-                      // 안전하게 만든다.
-                      <li key={entry.key} className="text-xs px-1.5 py-1 rounded-md">
-                        <div className="text-slate-500 mb-0.5">{entry.label}</div>
-                        {onEditDynamicGate ? (
-                          <select
-                            value={
-                              (pendingDynamicGateEdits?.[entry.key] ?? entry.value) ? "true" : "false"
-                            }
-                            onChange={(e) => onEditDynamicGate(entry.key, e.target.value === "true")}
-                            className={`w-full text-xs font-medium bg-white border rounded px-1.5 py-1 ${
-                              entry.key in (pendingDynamicGateEdits ?? {})
-                                ? "border-brand-400 text-brand-700"
-                                : "border-slate-200 text-slate-800"
-                            }`}
-                          >
-                            <option value="true">예</option>
-                            <option value="false">아니오</option>
-                          </select>
-                        ) : (
-                          <span className="font-medium text-slate-800">
-                            {entry.value ? "예" : "아니오"}
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

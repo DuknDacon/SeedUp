@@ -54,9 +54,13 @@ function won(value?: number | null): string | null {
 export type ProfileFieldSummary = {
   key: string;
   label: string;
-  /** STEP_META 인덱스 */
+  /** STEP_META 인덱스. EXTRA_PROFILE_FIELDS 항목은 어느 단계에도 속하지
+   * 않아(아래 설명 참고) 안 쓴다 — 그때는 -1로 둔다. */
   step: number;
   value: (p: Partial<UserProfile> | null | undefined) => string | null;
+  /** 있으면 "현재 조건 보기"에서 그 자리에서 바로 고칠 수 있다(select/입력
+   * 칸). EXTRA_PROFILE_FIELDS 전용. */
+  inlineEditType?: "boolean" | "number";
 };
 
 /** 채팅 화면 "현재 조건" 요약과 폼의 실시간 요약 카드가 함께 쓰는 필드 목록. */
@@ -83,34 +87,6 @@ export const PROFILE_FIELD_SUMMARY: ProfileFieldSummary[] = [
     step: 1,
     value: (p) => HOUSING_OPTIONS.find((h) => h.value === p?.housingStatus)?.label ?? null,
   },
-  // 아래 4개는 온보딩 폼에서 직접 묻지 않고, 대화 중 AI가 추가로 물어본
-  // profile_ask 답변으로만 채워진다(ProfileAskForm 참고) — 그래서 이 카드에
-  // 없으면 "방금 답한 게 실제로 반영됐는지" 확인할 방법이 없었다.
-  {
-    key: "financialIncomeTaxed",
-    label: "금융소득종합과세 이력",
-    step: 1,
-    value: (p) =>
-      typeof p?.financialIncomeTaxed === "boolean" ? (p.financialIncomeTaxed ? "있음" : "없음") : null,
-  },
-  {
-    key: "isSmeEmployee",
-    label: "중소기업 재직 여부",
-    step: 1,
-    value: (p) => (typeof p?.isSmeEmployee === "boolean" ? (p.isSmeEmployee ? "재직" : "미재직") : null),
-  },
-  {
-    key: "householdMonthlyIncome",
-    label: "가구 전체 월소득",
-    step: 1,
-    value: (p) => won(p?.householdMonthlyIncome),
-  },
-  {
-    key: "previousAnnualIncome",
-    label: "직전년도 연 소득",
-    step: 1,
-    value: (p) => won(p?.previousAnnualIncome),
-  },
   { key: "monthlyBudget", label: "월 저축여력", step: 2, value: (p) => won(p?.monthlyBudget) },
   { key: "targetDate", label: "목표 시점", step: 2, value: (p) => p?.targetDate ?? null },
   {
@@ -132,5 +108,45 @@ export const PROFILE_FIELD_SUMMARY: ProfileFieldSummary[] = [
     label: "투자상품 최대 배분",
     step: 2,
     value: (p) => (p?.investmentCap != null ? `${p.investmentCap}%` : null),
+  },
+];
+
+/** 온보딩 폼(1~3단계) 어디에도 입력 칸이 없고, 대화 중 AI가 추가로 물어본
+ * profile_ask 답변으로만 채워지는 4개 필드(ProfileAskForm 참고). 예전엔
+ * PROFILE_FIELD_SUMMARY에 step만 붙여 "기능① 정책 매칭 조건" 단계 밑에
+ * 끼워 넣었는데, 그 단계로 이동해봐야 이 필드를 물어보는 입력 칸이 아예
+ * 없어 고칠 방법이 없었다(실사용자 피드백: "이걸 누르면 초기 조건입력으로
+ * 가는데 추가 입력사항이라 조건입력엔 없다"). 그래서 온보딩 단계 목록과는
+ * 분리해 "상품별 추가 자격조건"과 같은 위치("대화 중 추가로 입력한 조건")에
+ * 인라인 편집으로만 두고, 단계 이동 클릭은 지원하지 않는다. */
+export const EXTRA_PROFILE_FIELDS: ProfileFieldSummary[] = [
+  {
+    key: "financialIncomeTaxed",
+    label: "금융소득종합과세 이력",
+    step: -1,
+    value: (p) =>
+      typeof p?.financialIncomeTaxed === "boolean" ? (p.financialIncomeTaxed ? "있음" : "없음") : null,
+    inlineEditType: "boolean",
+  },
+  {
+    key: "isSmeEmployee",
+    label: "중소기업 재직 여부",
+    step: -1,
+    value: (p) => (typeof p?.isSmeEmployee === "boolean" ? (p.isSmeEmployee ? "재직" : "미재직") : null),
+    inlineEditType: "boolean",
+  },
+  {
+    key: "householdMonthlyIncome",
+    label: "가구 전체 월소득",
+    step: -1,
+    value: (p) => won(p?.householdMonthlyIncome),
+    inlineEditType: "number",
+  },
+  {
+    key: "previousAnnualIncome",
+    label: "직전년도 연 소득",
+    step: -1,
+    value: (p) => won(p?.previousAnnualIncome),
+    inlineEditType: "number",
   },
 ];

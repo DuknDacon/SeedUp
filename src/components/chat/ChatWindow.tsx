@@ -35,7 +35,7 @@ import {
   type RoadmapHistoryEntry,
 } from "@/lib/roadmapHistory";
 import type { ChatBlock, ProfileAskField, UserProfile } from "@/types/api";
-import { STEP_META } from "@/lib/profileFieldMeta";
+import { EXTRA_PROFILE_FIELDS, STEP_META } from "@/lib/profileFieldMeta";
 import { ChatBlockRenderer } from "./ChatBlockRenderer";
 import { ConditionSlider } from "@/components/roadmap/ConditionSlider";
 import { ProfileSummaryCard } from "./ProfileSummaryCard";
@@ -101,6 +101,10 @@ export function ChatWindow() {
   // 결과가 계속 깜빡였다(실사용자 피드백) — 바꾼 값들을 여기 모아두고
   // "최신 변경사항 적용" 버튼을 눌렀을 때만 한 번에 합쳐서 보낸다.
   const [pendingGateEdits, setPendingGateEdits] = useState<Record<string, boolean>>({});
+  // EXTRA_PROFILE_FIELDS(금융소득종합과세 이력 등, 온보딩 폼엔 입력 칸이 없는
+  // 4개 필드) 인라인 편집도 같은 방식으로 모아뒀다 "최신 변경사항 적용"으로
+  // 한 번에 보낸다.
+  const [pendingProfileEdits, setPendingProfileEdits] = useState<Partial<UserProfile>>({});
   const [latestHistoryEntry, setLatestHistoryEntry] = useState<RoadmapHistoryEntry | null>(
     null,
   );
@@ -444,26 +448,47 @@ export function ChatWindow() {
   }
 
   /** "현재 조건 보기" 안 "상품별 추가 자격조건" select를 바꿀 때마다 즉시
-   * 보내지 않고 로컬에 모아둔다 — applyPendingGateEdits가 실제 전송을
-   * 담당한다. */
+   * 보내지 않고 로컬에 모아둔다 — applyPendingEdits가 실제 전송을 담당한다. */
   function onEditDynamicGate(key: string, value: boolean) {
     setPendingGateEdits((cur) => ({ ...cur, [key]: value }));
   }
 
-  /** "최신 변경사항 적용" 버튼 — 모아둔 편집을 한 번에 합쳐서
-   * onProfileAskSubmit(새 질문에 답하는 것과 같은 경로)으로 보낸다. */
-  function applyPendingGateEdits() {
-    const entries = Object.entries(pendingGateEdits);
-    if (entries.length === 0) return;
-    const fields: ProfileAskField[] = entries.map(([key]) => ({
-      key,
-      label: profile?.dynamicGateLabels?.[key] ?? key,
-      question: profile?.dynamicGateLabels?.[key] ?? key,
-      inputType: "boolean",
-      isDynamicGate: true,
-    }));
-    onProfileAskSubmit({ dynamicGateAnswers: { ...pendingGateEdits } }, fields);
+  /** EXTRA_PROFILE_FIELDS(금융소득종합과세 이력 등 4개, 온보딩 폼엔 입력 칸이
+   * 없는 필드) 편집도 마찬가지로 로컬에만 모아둔다. */
+  function onEditProfileField(key: string, value: boolean | number) {
+    setPendingProfileEdits((cur) => ({ ...cur, [key]: value }));
+  }
+
+  /** "최신 변경사항 적용" 버튼 — 동적 게이트 편집과 EXTRA_PROFILE_FIELDS 편집을
+   * 한 번에 합쳐서 onProfileAskSubmit(새 질문에 답하는 것과 같은 경로)으로 보낸다. */
+  function applyPendingEdits() {
+    const extraFieldLabel = (key: string) =>
+      EXTRA_PROFILE_FIELDS.find((f) => f.key === key)?.label ?? key;
+    const gateEntries = Object.entries(pendingGateEdits);
+    const profileEntries = Object.entries(pendingProfileEdits);
+    if (gateEntries.length === 0 && profileEntries.length === 0) return;
+    const fields: ProfileAskField[] = [
+      ...gateEntries.map(([key]) => ({
+        key,
+        label: profile?.dynamicGateLabels?.[key] ?? key,
+        question: profile?.dynamicGateLabels?.[key] ?? key,
+        inputType: "boolean" as const,
+        isDynamicGate: true,
+      })),
+      ...profileEntries.map(([key]) => ({
+        key,
+        label: extraFieldLabel(key),
+        question: extraFieldLabel(key),
+        inputType: (typeof (pendingProfileEdits as Record<string, unknown>)[key] === "boolean"
+          ? "boolean"
+          : "number") as "boolean" | "number",
+      })),
+    ];
+    const patch: Partial<UserProfile> = { ...pendingProfileEdits };
+    if (gateEntries.length > 0) patch.dynamicGateAnswers = { ...pendingGateEdits };
+    onProfileAskSubmit(patch, fields);
     setPendingGateEdits({});
+    setPendingProfileEdits({});
   }
 
   // 정책(기능①) 결과는 통합 테스트 확인용으로 하단에 별도 표시.
@@ -685,7 +710,9 @@ export function ChatWindow() {
               policyNames={eligibilityPolicyNames}
               onEditDynamicGate={onEditDynamicGate}
               pendingDynamicGateEdits={pendingGateEdits}
-              onApplyPendingEdits={applyPendingGateEdits}
+              onEditProfileField={onEditProfileField}
+              pendingProfileEdits={pendingProfileEdits}
+              onApplyPendingEdits={applyPendingEdits}
             />
           </div>
         )}
