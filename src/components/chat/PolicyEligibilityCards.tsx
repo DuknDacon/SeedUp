@@ -4,8 +4,8 @@
  * 예전엔 이 내용을 chat_reply 문장 하나에 조건을 세미콜론으로 다 이어붙여
  * 보여줬는데, 정책이 여러 개고 조건이 많으면(실제로 9개까지도 있음) 문장이
  * 도배돼 가독성이 크게 떨어진다는 실사용자 피드백으로 카드로 바꿨다.
+ * 상세 페이지 이동 클릭 이벤트는 제거됨 — 순수 요약 표시 용도.
  */
-import Link from "next/link";
 import { CheckCircle2, CircleHelp } from "lucide-react";
 import type { PolicyEligibilityCard } from "@/types/api";
 
@@ -30,10 +30,9 @@ export function PolicyEligibilityCards({ cards }: { cards: PolicyEligibilityCard
   return (
     <div className="mt-2 space-y-2">
       {cards.map((card) => (
-        <Link
+        <div
           key={card.policyId}
-          href={`/policy/${card.policyId}`}
-          className="block rounded-lg border bg-white overflow-hidden hover:border-brand-300 hover:shadow-sm transition"
+          className="rounded-lg border bg-white overflow-hidden"
         >
           <div className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 border-b">
             <span className="text-sm font-medium text-slate-900 truncate">{card.name}</span>
@@ -59,7 +58,7 @@ export function PolicyEligibilityCards({ cards }: { cards: PolicyEligibilityCard
               </li>
             ))}
           </ul>
-        </Link>
+        </div>
       ))}
     </div>
   );

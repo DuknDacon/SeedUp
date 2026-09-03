@@ -396,11 +396,20 @@ export function ChatWindow() {
       const m = messages[i];
       if (m.role !== "assistant") continue;
       const results = m.blocks.filter(
-        (b) =>
-          b.type === "roadmap_plan" ||
-          b.type === "profile_ask" ||
-          b.type === "policy_eligibility_cards"
+        (b) => b.type === "roadmap_plan" || b.type === "profile_ask"
       );
+      if (results.length > 0) return results;
+    }
+    return [] as ChatBlock[];
+  })();
+
+  // 참여 가능 정책 상품 리스트(추가 조건 입력으로 얻은 자격 카드)는
+  // 로드맵 결과와 별도로 맨 오른쪽 열에서 독립적으로 보여준다.
+  const latestPolicyEligibilityBlocks = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.role !== "assistant") continue;
+      const results = m.blocks.filter((b) => b.type === "policy_eligibility_cards");
       if (results.length > 0) return results;
     }
     return [] as ChatBlock[];
@@ -551,7 +560,7 @@ export function ChatWindow() {
 
   return (
     <>
-    <div className="grid grid-cols-1 md:grid-cols-[minmax(340px,420px)_1fr] gap-5 items-start">
+    <div className="grid grid-cols-1 md:grid-cols-[minmax(320px,380px)_1fr_minmax(280px,340px)] gap-5 items-start">
       {/* 왼쪽: 채팅 (기능②의 chat-section 위치와 동일) */}
       <div className="rounded-xl border bg-white flex flex-col h-[75vh] md:sticky md:top-5 overflow-hidden">
         {/* 채팅 헤딩: 아이콘·타이틀·안내·온라인 표시 */}
@@ -694,11 +703,6 @@ export function ChatWindow() {
               // 재사용한다 — 그 안의 submitted(제출됨) state가 안 지워져 새
               // 라운드의 모든 입력/버튼이 disabled로 굳어버리는 버그가 있었다.
               <div key={`${b.type}-${profileAskRounds}-${i}`}>
-                {b.type === "policy_eligibility_cards" && (
-                  <div className="mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                    조건에 맞는 상품 리스트
-                  </div>
-                )}
                 <ChatBlockRenderer
                   block={b}
                   onSuggestionClick={sendMessage}
@@ -706,6 +710,27 @@ export function ChatWindow() {
                   profileAskStepNumber={STEP_META.length + profileAskRounds}
                 />
               </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 맨 오른쪽: 추가 조건 입력으로 얻은 참여 가능 정책 상품 리스트 */}
+      <div className="rounded-xl border bg-white p-4 min-h-[240px]">
+        <div className="mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          참여 가능 정책 상품
+        </div>
+        {latestPolicyEligibilityBlocks.length === 0 ? (
+          <div className="flex flex-col items-center text-center text-sm text-slate-400 py-12">
+            <span className="w-11 h-11 grid place-items-center rounded-full bg-brand-50 text-brand-500 mb-3">
+              <Sparkles size={20} />
+            </span>
+            조건을 입력하면 참여 가능한 정책 상품이 이 패널에 표시됩니다.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {latestPolicyEligibilityBlocks.map((b, i) => (
+              <ChatBlockRenderer key={`${b.type}-${profileAskRounds}-${i}`} block={b} />
             ))}
           </div>
         )}

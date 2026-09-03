@@ -235,6 +235,12 @@ export type ProfileAskField = {
    * 실제 UserProfile 필드가 아니다 — 답변을 patch[key]가 아니라
    * patch.dynamicGateAnswers[key]로 라우팅해야 한다(ProfileAskForm 참고). */
   isDynamicGate?: boolean;
+  /** (선택) boolean 필드의 "예"/"아니요" select 선택지에 "예/아니요"만
+   * 보여주는 대신 그 질문의 주어까지 포함한 완전한 문장을 보여주고 싶을 때
+   * Roadmap-Agent가 내려준다. 없으면 ProfileAskForm이 기본 문구
+   * "네, 맞아요"/"아니요, 아니에요"를 쓴다. */
+  yesLabel?: string;
+  noLabel?: string;
 };
 
 type ProfileAskBlock = {

@@ -154,16 +154,23 @@ def _map_missing_fields(
             continue
         detail = details_by_field.get(name)
         if detail is not None:
-            fields.append(
-                {
-                    "key": name,
-                    "label": detail.get("hint") or detail.get("question", "")[:24],
-                    "question": detail.get("question", ""),
-                    "hint": detail.get("hint"),
-                    "inputType": detail.get("inputType", "boolean"),
-                    "isDynamicGate": ":" in name,
-                }
-            )
+            field = {
+                "key": name,
+                "label": detail.get("hint") or detail.get("question", "")[:24],
+                "question": detail.get("question", ""),
+                "hint": detail.get("hint"),
+                "inputType": detail.get("inputType", "boolean"),
+                "isDynamicGate": ":" in name,
+            }
+            # 동적 게이트 boolean 질문은 "예/아니요" 대신 그 질문의 주어까지
+            # 포함한 완전한 문장을 선택지로 보여준다(Roadmap-Agent가 검수
+            # 데이터에서 같이 내려줄 때만 채워짐 — 없으면 프론트가 기본
+            # "네, 맞아요"/"아니요, 아니에요"로 대체).
+            if detail.get("yesLabel"):
+                field["yesLabel"] = detail["yesLabel"]
+            if detail.get("noLabel"):
+                field["noLabel"] = detail["noLabel"]
+            fields.append(field)
     return fields
 
 

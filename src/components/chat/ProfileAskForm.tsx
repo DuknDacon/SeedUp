@@ -136,12 +136,14 @@ export function ProfileAskForm({
                 <option value="" disabled>
                   선택해주세요
                 </option>
-                {/* "~이 없으신가요?" 같은 이중부정 질문에서 "예/아니오"만
-                    보여주면 답이 사실을 긍정하는 건지 질문 문장에 동의하는
-                    건지 헷갈리기 쉽다 — 위 질문 문장에 동의/부동의하는
-                    것임을 문장으로 명확히 한다. */}
-                <option value="true">네, 맞아요</option>
-                <option value="false">아니요, 아니에요</option>
+                {/* 동적 게이트는 질문 문장의 주어까지 포함한 완전한 문장을
+                    선택지로 받는다(f.yesLabel/noLabel) — "예/아니요"만
+                    보여주면 위 질문이 뭘 물었는지 다시 훑어야 답을 고를 수
+                    있다는 실사용자 피드백으로 바꿨다. 값이 없으면(레거시
+                    4개 필드 등) "네, 맞아요"/"아니요, 아니에요" 기본 문구로
+                    대체한다. */}
+                <option value="true">{f.yesLabel || "네, 맞아요"}</option>
+                <option value="false">{f.noLabel || "아니요, 아니에요"}</option>
               </select>
             ) : (
               <input
