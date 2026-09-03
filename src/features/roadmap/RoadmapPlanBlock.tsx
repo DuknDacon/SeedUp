@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, CircleAlert, ExternalLink, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { Check, CircleAlert, ChevronDown, ChevronUp, ExternalLink, Sparkles } from "lucide-react";
 import type { RoadmapPlanPayload, Scenario } from "@/types/api";
 import { ScenarioComparisonTable } from "@/components/roadmap/ScenarioComparisonTable";
 import { TextWithGlossary } from "@/components/roadmap/TermTooltip";
@@ -22,7 +23,16 @@ function goalRateToTreeStage(goalRate: number | null | undefined): TreeStage {
   return 0;
 }
 
-export function RoadmapPlanBlock({ plan }: { plan: RoadmapPlanPayload }) {
+export function RoadmapPlanBlock({
+  plan,
+  hideEligibilityDuplicates,
+}: {
+  plan: RoadmapPlanPayload;
+  /** true면 "확인된 조건"/"추가 정보 필요" 문구를 감춘다 — 오른쪽 "참여 가능
+   * 정책 상품" 패널이 정책상품 시나리오와 같은 원본 데이터(policy.reason)로
+   * 만든 자격 카드를 이미 보여주고 있을 때만 켠다. */
+  hideEligibilityDuplicates?: boolean;
+}) {
   return (
     <div className="space-y-4">
       <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3">
@@ -30,8 +40,17 @@ export function RoadmapPlanBlock({ plan }: { plan: RoadmapPlanPayload }) {
         <p className="mt-1 text-sm leading-relaxed text-slate-700">{plan.summary}</p>
         <p className="mt-2 text-xs leading-relaxed text-slate-500">{plan.notice}</p>
       </div>
-      <RoadmapScenarioCard scenario={plan.recommended} reason={plan.recommendedReason} primary />
-      <RoadmapScenarioCard scenario={plan.alternative} reason={plan.alternativeReason} />
+      <RoadmapScenarioCard
+        scenario={plan.recommended}
+        reason={plan.recommendedReason}
+        primary
+        hideEligibilityDuplicates={hideEligibilityDuplicates}
+      />
+      <RoadmapScenarioCard
+        scenario={plan.alternative}
+        reason={plan.alternativeReason}
+        hideEligibilityDuplicates={hideEligibilityDuplicates}
+      />
       <ScenarioComparisonTable
         recommended={plan.recommended}
         alternatives={plan.alternatives ?? []}
@@ -40,17 +59,36 @@ export function RoadmapPlanBlock({ plan }: { plan: RoadmapPlanPayload }) {
   );
 }
 
+// 정책상품 시나리오(agents.py)의 rationale/warnings가 policy.reason을 그대로
+// 쪼개 만드는 접두어. 이 접두어가 붙은 줄은 오른쪽 정책 카드의 conditions와
+// 같은 원본에서 나온 중복이라, hideEligibilityDuplicates일 때만 걸러낸다.
+const ELIGIBILITY_DUPLICATE_PREFIXES = ["확인된 조건:", "추가 정보 필요:"];
+
 function RoadmapScenarioCard({
   scenario,
   reason,
   primary = false,
+  hideEligibilityDuplicates,
 }: {
   scenario: Scenario;
   reason?: string | null;
   primary?: boolean;
+  hideEligibilityDuplicates?: boolean;
 }) {
   const total = scenario.allocations.reduce((sum, item) => sum + item.amount, 0);
   const evidence = scenario.evidence.find((item) => item.url) ?? scenario.evidence[0];
+  const isPolicyScenario = scenario.productType === "정부기여금 활용형";
+  const stripDuplicates = Boolean(hideEligibilityDuplicates && isPolicyScenario);
+  const highlights = stripDuplicates
+    ? scenario.highlights.filter(
+        (text) => !ELIGIBILITY_DUPLICATE_PREFIXES.some((prefix) => text.startsWith(prefix)),
+      )
+    : scenario.highlights;
+  const warnings = stripDuplicates
+    ? scenario.warnings.filter(
+        (text) => !ELIGIBILITY_DUPLICATE_PREFIXES.some((prefix) => text.startsWith(prefix)),
+      )
+    : scenario.warnings;
 
   return (
     <article className={`rounded-lg border bg-white p-4 ${primary ? "border-blue-300 border-t-[3px]" : "border-slate-200"}`}>
@@ -81,13 +119,18 @@ function RoadmapScenarioCard({
         </div>
       </div>
 
-      {reason && <p className="mt-3 text-xs leading-relaxed text-slate-600"><TextWithGlossary text={reason} /></p>}
-      {scenario.highlights.map((text) => (
+      {reason && <CollapsibleReason text={reason} />}
+      {isPolicyScenario && stripDuplicates && (highlights.length < scenario.highlights.length || warnings.length < scenario.warnings.length) && (
+        <p className="mt-2 text-[11px] text-slate-400">
+          자격조건 상세는 오른쪽 "참여 가능 정책 상품" 카드에서 확인하세요.
+        </p>
+      )}
+      {highlights.map((text) => (
         <p key={text} className="mt-2 flex items-start gap-2 text-xs leading-relaxed text-slate-600">
           <Check size={14} className="mt-0.5 shrink-0 text-blue-600" /><TextWithGlossary text={text} />
         </p>
       ))}
-      {scenario.warnings.map((text) => (
+      {warnings.map((text) => (
         <p key={text} className="mt-2 flex items-start gap-2 rounded bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
           <CircleAlert size={14} className="mt-0.5 shrink-0" /><TextWithGlossary text={text} />
         </p>
@@ -103,6 +146,47 @@ function RoadmapScenarioCard({
         )
       )}
     </article>
+  );
+}
+
+// 이 길이를 넘는 reason 문단만 접어서 보여준다 — 짧은 문단까지 토글 버튼을
+// 붙이면 오히려 UI만 늘어난다.
+const REASON_COLLAPSE_THRESHOLD = 80;
+
+/** LLM이 만드는 reason 문단은 3~5문장까지도 길어질 수 있어(실사용자 피드백:
+ * 오른쪽 정책 카드의 체크리스트와 나란히 보면 화면이 글로 도배돼 보인다),
+ * 기본은 한 줄만 보여주고 펼쳐야 전체가 나오게 한다. */
+function CollapsibleReason({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = text.length > REASON_COLLAPSE_THRESHOLD;
+
+  if (!isLong) {
+    return (
+      <p className="mt-3 text-xs leading-relaxed text-slate-600">
+        <TextWithGlossary text={text} />
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-3">
+      <p
+        className={`text-xs leading-relaxed text-slate-600 ${expanded ? "" : "line-clamp-1"}`}
+      >
+        <TextWithGlossary text={text} />
+      </p>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="mt-1 inline-flex items-center gap-0.5 text-[11px] font-medium text-blue-600 hover:text-blue-800"
+      >
+        {expanded ? (
+          <>접기 <ChevronUp size={12} /></>
+        ) : (
+          <>자세한 설명 더 보기 <ChevronDown size={12} /></>
+        )}
+      </button>
+    </div>
   );
 }
 

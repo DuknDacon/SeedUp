@@ -20,6 +20,7 @@ export function ChatBlockRenderer({
   onSuggestionClick,
   onProfileAsk,
   profileAskStepNumber,
+  hideEligibilityDuplicates,
 }: {
   block: ChatBlock;
   /** suggested_replies 블록의 chip 클릭 시 그 문장을 그대로 다음 turn 으로 전송 */
@@ -28,6 +29,10 @@ export function ChatBlockRenderer({
   onProfileAsk?: (patch: Partial<UserProfile>, fields: ProfileAskField[]) => void;
   /** profile_ask 블록에 표시할, 온보딩 1~3단계에 이어지는 번호. */
   profileAskStepNumber?: number;
+  /** true면 roadmap_plan 안의 "확인된 조건"/"추가 정보 필요" 문구를 감춘다 —
+   * 같은 화면 오른쪽 "참여 가능 정책 상품" 패널이 이미 같은 내용을 카드로
+   * 보여줄 때만 켠다(ChatWindow 참고). */
+  hideEligibilityDuplicates?: boolean;
 }) {
   switch (block.type) {
     case "text":
@@ -53,7 +58,12 @@ export function ChatBlockRenderer({
       return <RecommendationsBlockView items={block.items} />;
 
     case "roadmap_plan":
-      return <RoadmapPlanBlock plan={block.plan} />;
+      return (
+        <RoadmapPlanBlock
+          plan={block.plan}
+          hideEligibilityDuplicates={hideEligibilityDuplicates}
+        />
+      );
 
     case "policy_eligibility_cards":
       return <PolicyEligibilityCards cards={block.cards} />;

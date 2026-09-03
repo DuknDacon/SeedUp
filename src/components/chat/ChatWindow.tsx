@@ -708,6 +708,7 @@ export function ChatWindow() {
                   onSuggestionClick={sendMessage}
                   onProfileAsk={onProfileAskSubmit}
                   profileAskStepNumber={STEP_META.length + profileAskRounds}
+                  hideEligibilityDuplicates={latestPolicyEligibilityBlocks.length > 0}
                 />
               </div>
             ))}
@@ -770,10 +771,19 @@ function Bubble({
   onProfileAsk: (patch: Partial<UserProfile>, fields: ProfileAskField[]) => void;
 }) {
   const isUser = msg.role === "user";
+  // profile_ask가 있으면 그 턴엔 "로드맵을 확인하는 중입니다" 류의 한 줄
+  // 안내 텍스트가 같이 온다(라우터 시스템 프롬프트 규칙 5.1) — 그 안내는
+  // 오른쪽/가운데 패널의 실제 질문 폼(ProfileAskForm)이 이미 자기 제목으로
+  // 보여주는 내용과 똑같아서, 버블에 남기면 라운드마다 정보 없는 문장만
+  // 쌓인다(실사용자 피드백: "로드맵을 구성하는 중입니다" 3개가 채팅 로그에
+  // 그대로 남음). profile_ask가 있는 턴은 text 블록을 버블에서 뺀다.
+  const hasProfileAsk = msg.blocks.some((b) => b.type === "profile_ask");
   // 큰 결과 블록은 오른쪽 패널에서 렌더되므로 버블에서는 걸러낸다.
   // 결과 블록만 있고 대화용 텍스트가 없는 assistant 턴은 버블 자체를 그리지 않는다
   // (예: policy_results 하나만 온 경우 — 왼쪽에 빈 버블이 뜨지 않도록).
-  const bubbleBlocks = msg.blocks.filter((b) => !isResultBlock(b));
+  const bubbleBlocks = msg.blocks.filter(
+    (b) => !isResultBlock(b) && !(hasProfileAsk && b.type === "text"),
+  );
   if (!isUser && bubbleBlocks.length === 0) return null;
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
