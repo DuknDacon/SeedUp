@@ -621,7 +621,13 @@ export function ChatWindow() {
           {showConditions ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
         </button>
         {showConditions && (
-          <div className="border-b px-3 py-3">
+          // 채팅창 전체가 h-[75vh] 고정 높이라, 게이트 답변이 몇 개만 쌓여도
+          // (실제로 9개까지 나옴) 이 영역이 그 높이를 넘겨 아래쪽("상품별
+          // 추가 자격조건" 등)이 잘려버리고, 이 div 자체엔 스크롤이 없어
+          // 보이지도 스크롤도 안 되는 문제가 있었다(실사용자 피드백). 이
+          // 영역만 따로 내부 스크롤을 갖게 해서 얼마나 길어져도 다 훑어볼
+          // 수 있게 한다.
+          <div className="border-b px-3 py-3 max-h-[40vh] overflow-y-auto">
             <ProfileSummaryCard profile={profile} onEditStep={openConditionEditor} />
           </div>
         )}
