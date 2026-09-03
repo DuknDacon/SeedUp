@@ -29,16 +29,45 @@ function dynamicGateEntries(profile: Partial<UserProfile> | null) {
   }));
 }
 
+/** 답변이 많으면(실제로 12개까지 나옴) 정책 구분 없이 나열해선 훑어보기
+ * 힘들다는 실사용자 피드백으로, 합성 키의 policyId로 묶는다 — 숨기진
+ * 않는다(사용자가 자기 조건을 정확히 알아야 한다는 요구), 정책별로만
+ * 묶어서 12줄이 3~4개 그룹으로 보이게 한다. */
+function groupByPolicy(
+  entries: ReturnType<typeof dynamicGateEntries>,
+  policyNames: Record<string, string>,
+) {
+  const groups = new Map<string, { name: string; entries: typeof entries }>();
+  for (const entry of entries) {
+    const policyId = entry.key.split(":")[0] ?? entry.key;
+    const group = groups.get(policyId);
+    if (group) {
+      group.entries.push(entry);
+    } else {
+      groups.set(policyId, { name: policyNames[policyId] ?? policyId, entries: [entry] });
+    }
+  }
+  return Array.from(groups.values());
+}
+
 export function ProfileSummaryCard({
   profile,
   activeStep,
   onEditStep,
+  policyNames,
+  onEditDynamicGate,
 }: {
   profile: Partial<UserProfile> | null;
   /** 폼 안에서 쓸 때: 지금 보고 있는 단계 제목을 강조 표시. */
   activeStep?: number;
   /** 있으면 각 줄이 클릭 가능해지고, 그 필드가 속한 단계 번호로 이동을 요청한다. */
   onEditStep?: (step: number) => void;
+  /** "policyId:gateId" 합성 키의 policyId → 정책명. 있으면 "상품별 추가
+   * 자격조건"을 정책별로 묶어서 보여준다(ChatWindow의 최신 자격 카드에서
+   * 만듦). 없으면(온보딩 폼 쪽 재사용) policyId를 그대로 그룹 이름으로 쓴다. */
+  policyNames?: Record<string, string>;
+  /** 있으면 각 동적 게이트 답변을 인라인 select로 바로 수정할 수 있다. */
+  onEditDynamicGate?: (key: string, label: string, value: boolean) => void;
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -90,19 +119,41 @@ export function ProfileSummaryCard({
             <div className="text-[11px] font-semibold mb-1 text-slate-400">
               상품별 추가 자격조건
             </div>
-            <ul className="space-y-0.5">
-              {dynamicGateEntries(profile).map((entry) => (
-                <li
-                  key={entry.key}
-                  className="flex items-start justify-between gap-2 text-xs px-1.5 py-1 rounded-md"
-                >
-                  <span className="text-slate-500">{entry.label}</span>
-                  <span className="font-medium text-slate-800 flex-shrink-0">
-                    {entry.value ? "예" : "아니오"}
-                  </span>
-                </li>
+            <div className="space-y-2">
+              {groupByPolicy(dynamicGateEntries(profile), policyNames ?? {}).map((group, i) => (
+                <div key={i}>
+                  <div className="text-[11px] font-medium text-slate-500 mb-0.5 truncate">
+                    {group.name}
+                  </div>
+                  <ul className="space-y-0.5">
+                    {group.entries.map((entry) => (
+                      <li
+                        key={entry.key}
+                        className="flex items-start justify-between gap-2 text-xs px-1.5 py-1 rounded-md"
+                      >
+                        <span className="text-slate-500">{entry.label}</span>
+                        {onEditDynamicGate ? (
+                          <select
+                            value={entry.value ? "true" : "false"}
+                            onChange={(e) =>
+                              onEditDynamicGate(entry.key, entry.label, e.target.value === "true")
+                            }
+                            className="text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded px-1 py-0.5 flex-shrink-0"
+                          >
+                            <option value="true">예</option>
+                            <option value="false">아니오</option>
+                          </select>
+                        ) : (
+                          <span className="font-medium text-slate-800 flex-shrink-0">
+                            {entry.value ? "예" : "아니오"}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
         )}
       </div>

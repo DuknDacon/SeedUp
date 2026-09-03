@@ -415,6 +415,27 @@ export function ChatWindow() {
     return [] as ChatBlock[];
   })();
 
+  // "현재 조건 보기"의 "상품별 추가 자격조건"이 12개까지도 flat하게
+  // 나열되면 정책 구분 없이 훑기 힘들다는 실사용자 피드백으로, 합성 키
+  // ("policyId:gateId")의 policyId를 실제 정책명으로 바꿔 그룹핑할 수 있게
+  // 맵을 만든다. 숨기지 않고 그대로 다 보여주되(사용자가 자기 조건을 정확히
+  // 알아야 한다는 요구) 정책별로만 묶는다.
+  const eligibilityPolicyNames: Record<string, string> = {};
+  for (const b of latestPolicyEligibilityBlocks) {
+    if (b.type !== "policy_eligibility_cards") continue;
+    for (const card of b.cards) eligibilityPolicyNames[card.policyId] = card.name;
+  }
+
+  /** "현재 조건 보기" 안 "상품별 추가 자격조건" 항목을 직접 수정 — 값을 바꾸고
+   * 즉시 재계산 turn을 (조용히) 보낸다. 새 질문에 답하는 것과 같은
+   * onProfileAskSubmit 경로를 재사용한다. */
+  function onEditDynamicGate(key: string, label: string, value: boolean) {
+    onProfileAskSubmit(
+      { dynamicGateAnswers: { [key]: value } },
+      [{ key, label, question: label, inputType: "boolean", isDynamicGate: true }],
+    );
+  }
+
   // 정책(기능①) 결과는 통합 테스트 확인용으로 하단에 별도 표시.
   // TODO: 통합 테스트 끝나면 이 파생값과 아래 하단 섹션 JSX를 통째로 제거.
   const latestPolicyBlocks = (() => {
@@ -628,7 +649,12 @@ export function ChatWindow() {
           // 영역만 따로 내부 스크롤을 갖게 해서 얼마나 길어져도 다 훑어볼
           // 수 있게 한다.
           <div className="border-b px-3 py-3 max-h-[40vh] overflow-y-auto">
-            <ProfileSummaryCard profile={profile} onEditStep={openConditionEditor} />
+            <ProfileSummaryCard
+              profile={profile}
+              onEditStep={openConditionEditor}
+              policyNames={eligibilityPolicyNames}
+              onEditDynamicGate={onEditDynamicGate}
+            />
           </div>
         )}
 
