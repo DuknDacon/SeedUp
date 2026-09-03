@@ -560,7 +560,7 @@ export function ChatWindow() {
 
   return (
     <>
-    <div className="grid grid-cols-1 md:grid-cols-[minmax(320px,380px)_1fr_minmax(280px,340px)] gap-5 items-start">
+    <div className="grid grid-cols-1 md:grid-cols-[minmax(340px,420px)_1fr] gap-5 items-start">
       {/* 왼쪽: 채팅 (기능②의 chat-section 위치와 동일) */}
       <div className="rounded-xl border bg-white flex flex-col h-[75vh] md:sticky md:top-5 overflow-hidden">
         {/* 채팅 헤딩: 아이콘·타이틀·안내·온라인 표시 */}
@@ -716,26 +716,31 @@ export function ChatWindow() {
         )}
       </div>
 
-      {/* 맨 오른쪽: 추가 조건 입력으로 얻은 참여 가능 정책 상품 리스트 */}
-      <div className="rounded-xl border bg-white p-4 min-h-[240px]">
-        <div className="mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-          참여 가능 정책 상품
-        </div>
-        {latestPolicyEligibilityBlocks.length === 0 ? (
-          <div className="flex flex-col items-center text-center text-sm text-slate-400 py-12">
-            <span className="w-11 h-11 grid place-items-center rounded-full bg-brand-50 text-brand-500 mb-3">
-              <Sparkles size={20} />
-            </span>
-            조건을 입력하면 참여 가능한 정책 상품이 이 패널에 표시됩니다.
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {latestPolicyEligibilityBlocks.map((b, i) => (
-              <ChatBlockRenderer key={`${b.type}-${profileAskRounds}-${i}`} block={b} />
-            ))}
-          </div>
-        )}
+    </div>
+
+    {/* 하단: 추가 조건 입력으로 얻은 참여 가능 정책 상품 리스트.
+        예전엔 오른쪽 3번째 좁은 열이었는데, 폭이 좁아 배지·체크리스트가
+        줄바꿈으로 도배돼 보인다는 실사용자 피드백으로 전체 너비 하단
+        섹션으로 옮겼다 — 클릭 없이 항상 보이되(핵심 기능이라 접지 않음),
+        가로 폭을 넉넉히 써서 카드가 여러 개면 나란히 배치된다. */}
+    <div className="mt-6 rounded-xl border bg-white p-4 min-h-[160px]">
+      <div className="mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+        참여 가능 정책 상품
       </div>
+      {latestPolicyEligibilityBlocks.length === 0 ? (
+        <div className="flex flex-col items-center text-center text-sm text-slate-400 py-8">
+          <span className="w-11 h-11 grid place-items-center rounded-full bg-brand-50 text-brand-500 mb-3">
+            <Sparkles size={20} />
+          </span>
+          조건을 입력하면 참여 가능한 정책 상품이 이 영역에 표시됩니다.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {latestPolicyEligibilityBlocks.map((b, i) => (
+            <ChatBlockRenderer key={`${b.type}-${profileAskRounds}-${i}`} block={b} />
+          ))}
+        </div>
+      )}
     </div>
 
     {/* 테스트용 최신 결과 섹션 — 화면에서 숨김 (필요 시 주석 해제)

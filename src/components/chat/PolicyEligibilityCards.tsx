@@ -5,6 +5,8 @@
  * 보여줬는데, 정책이 여러 개고 조건이 많으면(실제로 9개까지도 있음) 문장이
  * 도배돼 가독성이 크게 떨어진다는 실사용자 피드백으로 카드로 바꿨다.
  * 상세 페이지 이동 클릭 이벤트는 제거됨 — 순수 요약 표시 용도.
+ * 하단 전체 너비 섹션에 자리 잡은 뒤로는(ChatWindow 참고) 세로로만 쌓지
+ * 않고 폭이 넓으면 카드가 나란히 배치되도록 grid로 바꿨다.
  */
 import { CheckCircle2, CircleHelp } from "lucide-react";
 import type { PolicyEligibilityCard } from "@/types/api";
@@ -28,7 +30,7 @@ export function PolicyEligibilityCards({ cards }: { cards: PolicyEligibilityCard
   if (cards.length === 0) return null;
 
   return (
-    <div className="mt-2 space-y-2">
+    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
       {cards.map((card) => (
         <div
           key={card.policyId}
