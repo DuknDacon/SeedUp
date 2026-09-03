@@ -874,11 +874,25 @@ function Bubble({
   // 쌓인다(실사용자 피드백: "로드맵을 구성하는 중입니다" 3개가 채팅 로그에
   // 그대로 남음). profile_ask가 있는 턴은 text 블록을 버블에서 뺀다.
   const hasProfileAsk = msg.blocks.some((b) => b.type === "profile_ask");
+  // roadmap_plan이 있으면 그 plan.summary가 이번 턴의 chat_reply를 그대로
+  // 담고 있고(백엔드가 text 블록에도 같은 chat_reply를 실어 보냄), 2열
+  // 레이아웃에서는 왼쪽 마지막 버블과 오른쪽 결과 패널의 파란 요약 박스가
+  // 동시에 화면에 보여서 같은 문장이 나란히 두 번 보인다(실사용자 피드백).
+  // 완전히 똑같은 문장일 때만 버블 쪽을 생략한다 — "왜 추천했어?" 같은
+  // 질문에 대한 진짜 새 답변(문구가 summary와 다름)은 그대로 버블에 남긴다.
+  const roadmapPlanBlock = msg.blocks.find((b) => b.type === "roadmap_plan");
+  const duplicatesRoadmapSummary = (b: ChatBlock) =>
+    b.type === "text" &&
+    roadmapPlanBlock?.type === "roadmap_plan" &&
+    b.content === roadmapPlanBlock.plan.summary;
   // 큰 결과 블록은 오른쪽 패널에서 렌더되므로 버블에서는 걸러낸다.
   // 결과 블록만 있고 대화용 텍스트가 없는 assistant 턴은 버블 자체를 그리지 않는다
   // (예: policy_results 하나만 온 경우 — 왼쪽에 빈 버블이 뜨지 않도록).
   const bubbleBlocks = msg.blocks.filter(
-    (b) => !isResultBlock(b) && !(hasProfileAsk && b.type === "text"),
+    (b) =>
+      !isResultBlock(b) &&
+      !(hasProfileAsk && b.type === "text") &&
+      !duplicatesRoadmapSummary(b),
   );
   if (!isUser && bubbleBlocks.length === 0) return null;
   return (
