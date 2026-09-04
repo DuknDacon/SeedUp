@@ -613,7 +613,7 @@ export function ChatWindow() {
               {formOrigin ? "조건 입력" : "통합 상담 시작 전 조건 입력"}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              정책 매칭(기능①)과 자산관리 로드맵(기능②) 모두에 필요한 조건을
+              정책 매칭(BenefitUp Agent)과 자산관리 로드맵(Roadmap Agent) 모두에 필요한 조건을
               한 번에 저장합니다. 대화 도중에는 상단 "조건 재입력" 버튼으로 다시
               열 수 있어요.
             </p>

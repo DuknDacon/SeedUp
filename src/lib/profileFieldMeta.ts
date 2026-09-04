@@ -42,8 +42,8 @@ export const RISK_LEVEL_LABELS: Record<string, string> = {
 /** 온보딩 폼의 3단계 제목. 채팅 화면의 "현재 조건" 요약도 같은 단계 구분을 쓴다. */
 export const STEP_META = [
   { title: "기본 정보" },
-  { title: "기능① 정책 매칭 조건" },
-  { title: "기능② 자산관리 로드맵 조건" },
+  { title: "BenefitUp Agent · 정책 매칭 조건" },
+  { title: "Roadmap Agent · 자산관리 로드맵 조건" },
 ] as const;
 
 function won(value?: number | null): string | null {
@@ -113,7 +113,7 @@ export const PROFILE_FIELD_SUMMARY: ProfileFieldSummary[] = [
 
 /** 온보딩 폼(1~3단계) 어디에도 입력 칸이 없고, 대화 중 AI가 추가로 물어본
  * profile_ask 답변으로만 채워지는 4개 필드(ProfileAskForm 참고). 예전엔
- * PROFILE_FIELD_SUMMARY에 step만 붙여 "기능① 정책 매칭 조건" 단계 밑에
+ * PROFILE_FIELD_SUMMARY에 step만 붙여 "정책 매칭 조건" 단계 밑에
  * 끼워 넣었는데, 그 단계로 이동해봐야 이 필드를 물어보는 입력 칸이 아예
  * 없어 고칠 방법이 없었다(실사용자 피드백: "이걸 누르면 초기 조건입력으로
  * 가는데 추가 입력사항이라 조건입력엔 없다"). 그래서 온보딩 단계 목록과는

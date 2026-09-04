@@ -399,7 +399,7 @@ export function IntegratedProfileForm({
           <span className="w-6 h-6 grid place-items-center rounded-md bg-brand-50 text-brand-600">
             <Landmark size={13} />
           </span>
-          기능① 정책 매칭 조건
+          BenefitUp Agent · 정책 매칭 조건
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-3 gap-y-2">
           <Field label="고용 형태">
@@ -451,7 +451,7 @@ export function IntegratedProfileForm({
           <span className="w-6 h-6 grid place-items-center rounded-md bg-sprout-50 text-sprout-600">
             <TrendingUp size={13} />
           </span>
-          기능② 자산관리 로드맵 조건
+          Roadmap Agent · 자산관리 로드맵 조건
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2">
           <Field label="월 저축여력 (만원)">
