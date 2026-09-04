@@ -260,3 +260,10 @@ backend/app/.data/
 # Docker 이미지 파일 (scp 등으로 서버에 직접 전달, git에는 올리지 않음)
 # ─────────────────────────────────────────────
 *.tar
+
+
+*.hwpx
+SEEDUP_SERVER_SETUP (1).md
+SEEDUP_SERVER_SETUP.md
+seedup-port-open-progress.md
+공용DB_구축_진행상황.md
