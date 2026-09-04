@@ -304,6 +304,21 @@ async def call_roadmap_agent(
         # 피드백). 그 외 의도(financial_qa 등)에서 빈 배열이 오는 건 "이번
         # turn은 자격 재판정과 무관함"을 뜻하므로 여전히 블록을 안 보내
         # 오른쪽 패널이 마지막 카드를 그대로 유지하게 둔다.
+        # 이번 turn의 답변 근거. 금융 Q&A처럼 로드맵 카드 없이 문장만 나가는
+        # turn은 이 블록이 없으면 출처가 화면에 전혀 안 붙는다 — RAG로 공식
+        # 문서를 찾아 답해놓고도 근거를 못 보여주던 문제를 여기서 잇는다.
+        sources = data.get("sources")
+        if sources:
+            blocks.append(
+                {
+                    "type": "sources",
+                    "items": [
+                        {"title": s.get("title", ""), "url": s.get("url") or None}
+                        for s in sources
+                        if s.get("title")
+                    ],
+                }
+            )
         # 반영하지 않은 조건이 있을 때 Roadmap-Agent가 내려주는 제안 문구 —
         # 프론트가 chip으로 렌더하고, 누르면 그 문장이 그대로 다음 turn으로
         # 전송돼 조건 변경이 실행된다(ChatWindow의 onSuggestionClick).
