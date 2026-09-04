@@ -304,6 +304,12 @@ async def call_roadmap_agent(
         # 피드백). 그 외 의도(financial_qa 등)에서 빈 배열이 오는 건 "이번
         # turn은 자격 재판정과 무관함"을 뜻하므로 여전히 블록을 안 보내
         # 오른쪽 패널이 마지막 카드를 그대로 유지하게 둔다.
+        # 반영하지 않은 조건이 있을 때 Roadmap-Agent가 내려주는 제안 문구 —
+        # 프론트가 chip으로 렌더하고, 누르면 그 문장이 그대로 다음 turn으로
+        # 전송돼 조건 변경이 실행된다(ChatWindow의 onSuggestionClick).
+        suggestions = data.get("suggestedReplies")
+        if suggestions:
+            blocks.append({"type": "suggested_replies", "suggestions": suggestions})
         eligibility_cards = data.get("policyEligibilityCards")
         if eligibility_cards or data.get("conversationIntent") == "policy_eligibility":
             blocks.append(
